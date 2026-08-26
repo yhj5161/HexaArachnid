@@ -136,6 +136,17 @@ static const TB6612_Config_t s_tb6612Table[] =
 };
 #undef ENROLL_TB6612_ITEM
 
+/*******************************HCSR04***********************************/
+/* HC-SR04 配置表：把 HW_HCSR04_MAP 展开成 HCSR04_Config_t。 */
+#define ENROLL_HCSR04_ITEM(id, trigPort, trigPin, echoPort, echoPin) \
+	{ trigPort, trigPin, echoPort, echoPin },
+
+static const HCSR04_Config_t s_hcsr04Table[] =
+{
+	HW_HCSR04_MAP(ENROLL_HCSR04_ITEM)
+};
+#undef ENROLL_HCSR04_ITEM
+
 /****************************** API资源注册层 ************************/
 /* PWM 注册：登记板级 PWM 资源表。 */
 void Enroll_PWM_Register(void)
@@ -240,4 +251,10 @@ void Enroll_TB6612_Register(void)
 void Enroll_Encoder_Register(void)
 {
 	API_Encoder_Register(s_encoderTable, HW_ENCODER_COUNT);
+}
+
+/* HC-SR04 超声波注册：登记板级 Trig/Echo 引脚表。 */
+void Enroll_HCSR04_Register(void)
+{
+	HCSR04_Register(s_hcsr04Table, HW_HCSR04_COUNT);
 }

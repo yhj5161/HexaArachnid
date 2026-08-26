@@ -168,6 +168,16 @@ LED1 绿 LED2 红 LED3 蓝
       API_ENCODER_CH1, HW_ENCODER2_A_PORT, HW_ENCODER2_A_PIN, \
       API_ENCODER_CH2, HW_ENCODER2_B_PORT, HW_ENCODER2_B_PIN)
 
+/* HC-SR04 超声波引脚定义：Trig=PB6（触发输出），Echo=PB7（回波输入，5V 容忍 FT 脚） */
+#define HW_HCSR04_TRIG_PORT GPIOB
+#define HW_HCSR04_TRIG_PIN  GPIO_Pin_6
+#define HW_HCSR04_ECHO_PORT GPIOB
+#define HW_HCSR04_ECHO_PIN  GPIO_Pin_7
+
+/* HC-SR04 板级映射：当前注册 1 个超声波 */
+#define HW_HCSR04_MAP(X) \
+    X(HCSR04_1, HW_HCSR04_TRIG_PORT, HW_HCSR04_TRIG_PIN, HW_HCSR04_ECHO_PORT, HW_HCSR04_ECHO_PIN)
+
 /* 当前板子上注册了 3 个 LED */
 #define HW_LED_COUNT  3U
 /* 当前板子上注册了 1 个按键 */
@@ -192,5 +202,7 @@ LED1 绿 LED2 红 LED3 蓝
 #define HW_TB6612_COUNT 1U
 /* 当前板子上注册了 2 个编码器 */
 #define HW_ENCODER_COUNT  2U
+/* 当前板子上注册了 1 个 HC-SR04 超声波 */
+#define HW_HCSR04_COUNT   1U
 
 #endif /* __407_HW_CONFIG_H */

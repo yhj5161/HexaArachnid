@@ -105,3 +105,31 @@ void Delay_s(uint32_t s)
 		--s;
 	}
 }
+
+/*
+ * 使能 DWT 周期计数器（懒初始化，仅在首次调用 Micros 时执行一次）。
+ * Cortex-M4 的 DWT->CYCCNT 以 HCLK 频率自由计数，用来做微秒级时间戳，
+ * 不占用任何定时器外设。
+ */
+static void F407_DwtInitOnce(void)
+{
+	if ((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) != 0U)
+	{
+		return; /* 已使能 */
+	}
+
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CYCCNT = 0U;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+}
+
+/*
+ * 返回自 DWT 使能以来的微秒数。
+ * 说明：CYCCNT 为 32bit，168MHz 下约每 25.5s 回绕一次；
+ * 测脉宽等场景用 (后值 - 前值) 的无符号差，可天然免疫回绕。
+ */
+uint32_t Micros(void)
+{
+	F407_DwtInitOnce();
+	return DWT->CYCCNT / (SystemCoreClock / 1000000U);
+}

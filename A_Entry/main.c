@@ -28,6 +28,7 @@
 #include "MPU6050_Int.h"
 #include "Control.h"
 #include "TB6612.h"
+#include "HCSR04.h"
 
 int main(void)
 {
@@ -45,6 +46,7 @@ int main(void)
 	Enroll_OLED_Register();					/* OLED SPI 控制脚注册 */
 	Enroll_TB6612_Register();				/* TB6612 资源注册 */
 	Enroll_Encoder_Register();				/* 编码器 资源注册 */
+	Enroll_HCSR04_Register();				/* HC-SR04 超声波 资源注册 */
 
 	/* 注册后绑定中断回调*/
 	Enroll_USART_RegisterIrqHandler(Control_Task_USART_Callback); /* USART 中断回调注册 */
@@ -83,6 +85,7 @@ int main(void)
 	// TB6612_Init(); /* TB6612 电机驱动初始化 */
 	// API_Encoder_Init(API_ENCODER_1); /* 编码器 1 初始化 */
 	// API_Encoder_Init(API_ENCODER_2); /* 编码器 2 初始化 */
+	// HCSR04_Init(HCSR04_1); /* HC-SR04 超声波初始化（Trig=PB6, Echo=PB7） */
 
 /* PID控制器初始化 */
 	// PID_Speed_Init(); /* 速度环初始化 */
@@ -134,6 +137,11 @@ int main(void)
 
 /* TB6612测试 */
 		// TB6612_SetSpeed(100, 100);
+
+/* HC-SR04 超声波测距测试（单次 + 5 次平均） */
+		// float dist = HCSR04_GetDistance(HCSR04_1);
+		// float distAvg = HCSR04_GetDistanceAvg(HCSR04_1, 5U);
+		// usart_printf(USART1, "dist=%.1f cm, avg=%.1f cm\r\n", dist, distAvg);
 
 /* MPU6050 DMP */
 		mpu_angle();

@@ -69,6 +69,9 @@ void Enroll_MPU6050_Register(void);
 /* 编码器资源注册：登记板级编码器资源表。 */
 void Enroll_Encoder_Register(void);
 
+/* HC-SR04 超声波资源注册：登记板级 Trig/Echo 引脚表。 */
+void Enroll_HCSR04_Register(void);
+
 #ifdef __cplusplus
 }
 #endif
