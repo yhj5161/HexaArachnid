@@ -120,7 +120,7 @@
 				"Debug-F407",
 				"Debug-G3507"
 			],
-			"default": "Debug-G3507"
+			"default": "Debug-F407"
 		},
 		{
 			"id": "mcuFlashPreset",
@@ -131,7 +131,7 @@
 				"Debug-F407",
 				"Debug-G3507"
 			],
-			"default": "Debug-G3507"
+			"default": "Debug-F407"
 		},
 		{
 			"id": "mcuMacroTarget",
@@ -142,7 +142,7 @@
 				"ENROLL_MCU_F407",
 				"ENROLL_MCU_G3507"
 			],
-			"default": "ENROLL_MCU_G3507"
+			"default": "ENROLL_MCU_F407"
 		}
 	]
 }
