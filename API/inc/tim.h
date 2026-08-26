@@ -7,15 +7,8 @@
 extern "C" {
 #endif
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-#include "f103_tim.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* 本工程固定为 STM32F407，直接包含其底层头文件。 */
 #include "f407_tim.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#include "G3507_tim.h"
-#else
-#error "Unsupported ENROLL_MCU_TARGET."
-#endif
 
 typedef enum
 {
@@ -26,24 +19,11 @@ typedef enum
 	API_TIM5 = 4U
 } API_TIM_Id_t;
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-#define API_TIM_CORE_TIM2  (1U)
-#define API_TIM_CORE_TIM3  (2U)
-#define API_TIM_CORE_TIM4  (3U)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* F407 底层定时器编号。 */
 #define API_TIM_CORE_TIM2  (1U)
 #define API_TIM_CORE_TIM3  (2U)
 #define API_TIM_CORE_TIM4  (3U)
 #define API_TIM_CORE_TIM5  (4U)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#define API_TIM_CORE_TIMG0   (0U)
-#define API_TIM_CORE_TIMG6   (1U)
-#define API_TIM_CORE_TIMA0   (2U)
-#define API_TIM_CORE_TIMA1   (3U)
-#define API_TIM_CORE_TIMG7   (4U)
-#define API_TIM_CORE_TIMG8   (5U)
-#define API_TIM_CORE_TIMG12  (6U)
-#endif
 
 typedef struct
 {
@@ -53,28 +33,7 @@ typedef struct
 
 typedef void (*API_TIM_IrqHandler_t)(API_TIM_Id_t id);
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-typedef struct
-{
-	volatile uint32_t CR1;
-	volatile uint32_t CR2;
-	volatile uint32_t SMCR;
-	volatile uint32_t DIER;
-	volatile uint32_t SR;
-	volatile uint32_t EGR;
-	volatile uint32_t CCMR1;
-	volatile uint32_t CCMR2;
-	volatile uint32_t CCER;
-	volatile uint32_t CNT;
-	volatile uint32_t PSC;
-	volatile uint32_t ARR;
-} F103_TIM_View_t;
-
-#define TIM2 ((F103_TIM_View_t *)0x40000000UL)
-#define TIM3 ((F103_TIM_View_t *)0x40000400UL)
-#define TIM4 ((F103_TIM_View_t *)0x40000800UL)
-#define TIM_SR_UIF (1UL << 0)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* F407 定时器最小寄存器视图（供中断里直接访问）。 */
 typedef struct
 {
 	volatile uint32_t CR1;
@@ -96,7 +55,6 @@ typedef struct
 #define TIM4 ((F407_TIM_View_t *)0x40000800UL)
 #define TIM5 ((F407_TIM_View_t *)0x40000C00UL)
 #define TIM_SR_UIF (1UL << 0)
-#endif
 
 /*
  * 定时器初始化接口：

@@ -56,10 +56,9 @@ int main(void)
 	API_USART_Init(API_USART1, 115200U); // 初始化 USART1，波特率 115200
 	API_USART_Init(API_USART2, 115200U); // 初始化 USART2，波特率 115200
 	API_USART_Init(API_USART3, 115200U); // 初始化 USART3，波特率 115200
-	/* PWM 初始化示例:
-	 * G3507: API_PWM_TIM1 -> 10kHz, ARR=400-1, PSC=8-1
-	 * F103 : API_PWM_TIM2 -> 1kHz,  ARR=100-1, PSC=720-1
-	 * F407 : API_PWM_TIM1 -> 50Hz,  ARR=4000-1, PSC=840-1
+	/* PWM 初始化（F407）:
+	 * 例：API_PWM_TIM1 -> 50Hz, ARR=4000-1, PSC=840-1（驱动舵机常用 50Hz）
+	 * 接蜘蛛舵机前请按 F407 定时器重新核算 ARR/PSC。
 	 */
 	API_PWM_Init(API_PWM_TIM1, 400U - 1U, 8U - 1U);
 	API_ADC_Init(API_ADC1); // 初始化 ADC1

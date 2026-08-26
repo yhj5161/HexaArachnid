@@ -7,18 +7,10 @@
 extern "C" {
 #endif
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-#include "f103_usart.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* 本工程固定为 STM32F407，直接包含其底层头文件。 */
 #include "f407_usart.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#include "G3507_usart.h"
-#include "ti/devices/msp/m0p/mspm0g350x.h"
-#else
-#error "Unsupported ENROLL_MCU_TARGET."
-#endif
 
-/* F1/F4串口映射按正常顺序定义，G3507往后偏移1位，所以G3507的USART1实际上对应硬件UART0 */
+/* F407 串口映射按正常顺序定义：API_USART1/2/3 对应底层串口 0/1/2。 */
 
 typedef enum
 {
@@ -27,20 +19,10 @@ typedef enum
 	API_USART3 = 3U,
 } API_USART_Id_t;
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
+/* F407 底层串口编号。 */
 #define API_USART_CORE_USART1  (0U)
 #define API_USART_CORE_USART2  (1U)
 #define API_USART_CORE_USART3  (2U)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
-#define API_USART_CORE_USART1  (0U)
-#define API_USART_CORE_USART2  (1U)
-#define API_USART_CORE_USART3  (2U)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#define API_USART_CORE_UART0   (0U)
-#define API_USART_CORE_UART1   (1U)
-#define API_USART_CORE_UART2   (2U)
-#define API_USART_CORE_UART3   (3U)
-#endif
 
 typedef struct
 {
@@ -55,28 +37,9 @@ typedef struct
 typedef void (*API_USART_IrqHandler_t)(API_USART_Id_t id);
 
 /*
- * 供应用层在串口中断里直接访问的最小寄存器视图。
+ * 供应用层在串口中断里直接访问的最小寄存器视图（F407）。
  * 这样 main.c 可以直接写 USARTx_IRQHandler，而不用再走额外的 API 串口 IRQ 包装。
  */
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-typedef struct
-{
-	volatile uint32_t SR;
-	volatile uint32_t DR;
-	volatile uint32_t BRR;
-	volatile uint32_t CR1;
-	volatile uint32_t CR2;
-	volatile uint32_t CR3;
-	volatile uint32_t GTPR;
-} F103_USART_View_t;
-
-#define USART1 ((F103_USART_View_t *)0x40013800UL)
-#define USART2 ((F103_USART_View_t *)0x40004400UL)
-#define USART3 ((F103_USART_View_t *)0x40004800UL)
-#define USART_SR_RXNE (1UL << 5)
-#define USART_SR_TC   (1UL << 6)
-#define USART_SR_TXE  (1UL << 7)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
 typedef struct
 {
 	volatile uint32_t SR;
@@ -95,20 +58,6 @@ typedef struct
 #define USART_SR_RXNE (1UL << 5)
 #define USART_SR_TC   (1UL << 6)
 #define USART_SR_TXE  (1UL << 7)
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-typedef UART_Regs G3507_USART_View_t;
-
-#define USART1 ((G3507_USART_View_t *)UART0)
-#define USART2 ((G3507_USART_View_t *)UART1)
-#define USART3 ((G3507_USART_View_t *)UART2)
-#define USART4 ((G3507_USART_View_t *)UART3)
-/* G3507 无与 STM32 完全同名位定义，这里仅保留兼容常量。 */
-#define USART_SR_RXNE (1UL << 5)
-#define USART_SR_TC   (1UL << 6)
-#define USART_SR_TXE  (1UL << 7)
-#else
-#error "Unsupported ENROLL_MCU_TARGET."
-#endif
 
 void API_USART_Register(const API_USART_Config_t *configTable, uint8_t count);
 void API_USART_RegisterIrqHandler(API_USART_Id_t id, API_USART_IrqHandler_t handler);

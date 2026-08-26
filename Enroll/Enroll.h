@@ -8,25 +8,9 @@
  * 1) 读取板级 hw_config 映射表；
  * 2) 把逻辑外设（LED/USART/ADC...）注册到 API/BSP；
  * 3) 对 App 暴露统一入口，避免 App 直接依赖具体 MCU 细节。
+ *
+ * 本工程已精简为单一主控 STM32F407，板级映射固定使用 407_hw_config.h。
  */
-
-/* MCU 目标常量：放在注册层头文件，便于统一查看与管理。 */
-#ifndef ENROLL_MCU_F103
-#define ENROLL_MCU_F103   0U
-#endif
-
-#ifndef ENROLL_MCU_F407
-#define ENROLL_MCU_F407   1U
-#endif
-
-#ifndef ENROLL_MCU_G3507
-#define ENROLL_MCU_G3507  2U
-#endif
-
-/* 默认MCU */
-#ifndef ENROLL_MCU_TARGET
-#define ENROLL_MCU_TARGET  ENROLL_MCU_F407
-#endif
 
 /*
  * 头文件依赖规则：
@@ -36,18 +20,8 @@
 #include "usart.h"    /* API_USART_IrqHandler_t */
 #include "tim.h"      /* API_TIM_IrqHandler_t */
 
-/*
- * 条件编译选择不同 MCU 的 hw_config。
- */
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-#include "103_hw_config.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* F407 板级引脚/外设映射表。 */
 #include "407_hw_config.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#include "G3507_hw_config.h"
-#else
-#error "Unsupported ENROLL_MCU_TARGET. Use 0(F103), 1(F407), or 2(G3507)."
-#endif
 
 #ifdef __cplusplus
 extern "C" {

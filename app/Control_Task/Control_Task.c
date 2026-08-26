@@ -60,9 +60,6 @@ void Control_Task_Encoder_Callback(API_TIM_Id_t id)
 	if (Encoder_tick >= 20)
 	{
 		Encoder_tick = 0U;
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-		G3507_Encoder_SnapshotAll();
-#endif
 		Encoder1_Speed = API_Encoder_GetSpeed(API_ENCODER_1);
 		Encoder2_Speed = API_Encoder_GetSpeed(API_ENCODER_2);
 		Encoder_flag = 1U;

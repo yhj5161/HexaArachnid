@@ -7,15 +7,8 @@
 extern "C" {
 #endif
 
-#if (ENROLL_MCU_TARGET == ENROLL_MCU_F103)
-#include "f103_gpio.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_F407)
+/* 本工程固定为 STM32F407，直接包含其底层头文件。 */
 #include "f407_gpio.h"
-#elif (ENROLL_MCU_TARGET == ENROLL_MCU_G3507)
-#include "G3507_gpio.h"
-#else
-#error "Unsupported ENROLL_MCU_TARGET."
-#endif
 
 /* 配置 GPIO 为推挽输出。 */
 void API_GPIO_InitOutput(void *port, uint32_t pin);

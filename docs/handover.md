@@ -1,97 +1,99 @@
 # QuadArachnid 交接文档
 
-> 固件工程名：**OmniLayer**（多 MCU 分层架构框架）
+> 固件工程名：**OmniLayer**（分层架构框架）
 > 机器人形态：蜘蛛型（四足）机器人
-> 当前主控：**STM32F407**
-> 文档日期：2026-08-26 ｜ 分支：`main` ｜ 最近提交：`0d867c5 更改了芯片配置`
+> 当前主控：**STM32F407（已精简为唯一主控，不再支持多 MCU 切换）**
+> 文档日期：2026-08-26 ｜ 分支：`main`
 
 ---
 
 ## 1. 一句话现状
 
-工程已切换到 **STM32F407** 作为默认目标，**编译、链接、烧录链路全部打通**（实测通过）。
-但**应用层目前还是"平衡车/轮式"模板**（TB6612 直流电机 + 编码器 + MPU6050 姿态 + 速度环 PID），**蜘蛛机器人特有的腿部/舵机/步态/逆运动学代码尚未编写**，是接下来要做的核心工作。
+工程已切换到 **STM32F407** 作为目标，**编译、链接、烧录链路全部打通**（实测通过）。**本工程已进一步精简为 F407 单主控**：F103 与 G3507 的底层代码（Core/Drivers）、板级配置、OpenOCD 配置及构建/代码中的多 MCU 分支已全部移除（详见第 5 节）。但**应用层目前还是"平衡车/轮式"模板**（TB6612 直流电机 + 编码器 + MPU6050 姿态 + 速度环 PID），**蜘蛛机器人特有的腿部/舵机/步态/逆运动学代码尚未编写**，是接下来要做的核心工作。
 
 ---
 
 ## 2. 项目是什么
 
-- OmniLayer 是一个**多 MCU、可迁移的分层嵌入式框架**，核心理念是"分层不是目的，隔离变化才是"——同一套业务代码，按目标芯片切换底层实现。
-- 当前支持的芯片：**STM32F103 / STM32F407 / TI MSPM0G3507**。
-- 本仓库 `QuadArachnid` 用这套框架来做蜘蛛机器人，主控定为 **F407**。
-- 详细架构设计请参阅 [`README.md`](../README.md) 与 [`docs/arch-guide.md`](arch-guide.md)，本文档不重复，只讲"交接时需要知道的现状与操作"。
+- OmniLayer 原本是一个**多 MCU、可迁移的分层嵌入式框架**，核心理念是"分层不是目的，隔离变化才是"。
+- **本仓库 `QuadArachnid` 已将其裁剪为 F407 单主控专用**，用于蜘蛛机器人。多 MCU 分发（`ENROLL_MCU_TARGET`）已移除，API 层直接对接 F407 Core 实现。
+- 详细架构设计请参阅 [`README.md`](../README.md) 与 [`docs/arch-guide.md`](arch-guide.md)。⚠️ 注意：这两份文档仍按"多 MCU 框架"描述，其中 F103/G3507 相关内容已不适用于本仓库，以本文档为准。
 
 ---
 
 ## 3. 分层速查（给接手人）
 
-| 层级 | 目录 | 职责 | 换芯片时要不要改 |
-|---|---|---|---|
-| 入口层 | `A_Entry/main.c` | 唯一 main，初始化与主循环 | 一般不动 |
-| 应用层 | `app/` | 业务逻辑：Control / Control_Task / PID / Filter / My_Usart | 不动 |
-| 接口层 | `API/` | 统一片内外设接口（gpio/adc/pwm/tim/usart/exti/encoder）+ I2C/SPI 协议层 | 不动 |
-| 板级层 | `BSP/` | 板载器件封装：OLED/MPU6050/QMC5883P/BMP280/NRF24L01/TB6612/LED/KEY | 按需增删 |
-| 注册层 | `Enroll/` | **核心思想**：把板级资源映射到具体 MCU 引脚/外设实例 | **主要改这里** |
-| 核心层 | `Core/` | 各 MCU 的底层实现（`STM32F103`/`STM32F407`/`MSPM0G3507`） | 换芯片换这套 |
-| 系统层 | `SYSTEM/` | 时钟/中断分发/延时/总线速率/中断优先级 | 基本不动 |
-| 驱动资源层 | `Drivers/` | 启动文件、CMSIS/标准库 | 换芯片换这套 |
-| 中间件层 | `Middlewares/` | FreeRTOS、USB（**不上传仓库，需自行获取**） | — |
+| 层级 | 目录 | 职责 |
+|---|---|---|
+| 入口层 | `A_Entry/main.c` | 唯一 main，初始化与主循环 |
+| 应用层 | `app/` | 业务逻辑：Control / Control_Task / PID / Filter / My_Usart |
+| 接口层 | `API/` | 统一片内外设接口（gpio/adc/pwm/tim/usart/exti/encoder）+ I2C/SPI 协议层（现直接对接 F407） |
+| 板级层 | `BSP/` | 板载器件封装：OLED/MPU6050/QMC5883P/BMP280/NRF24L01/TB6612/LED/KEY |
+| 注册层 | `Enroll/` | **核心思想**：把板级资源映射到 F407 引脚/外设实例，**改引脚/接线主要改这里** |
+| 核心层 | `Core/STM32F407/` | F407 底层实现（仅剩这一套） |
+| 系统层 | `SYSTEM/` | 时钟/中断分发/延时/总线速率/中断优先级 |
+| 驱动资源层 | `Drivers/Drivers_STM32F4/` | F407 启动文件、CMSIS/标准库 |
+| 中间件层 | `Middlewares/` | FreeRTOS、USB（**不上传仓库，需自行获取**） |
 
-**上手最关键的两个文件**：
-- [`Enroll/Enroll.h`](../Enroll/Enroll.h) — 第 28 行 `#define ENROLL_MCU_TARGET` 决定默认芯片（当前 = `ENROLL_MCU_F407`）。
+**上手最关键的文件**：
 - [`Enroll/407_hw_config.h`](../Enroll/407_hw_config.h) — F407 的板级引脚/外设映射表，接线/改引脚看这里。
 
 ---
 
-## 4. 构建 / 烧录 / 切换芯片
+## 4. 构建 / 烧录
 
-工具链：CMake + Ninja + gcc-arm-none-eabi + OpenOCD（VS Code / Trae）。
+工具链：CMake + Ninja + gcc-arm-none-eabi + OpenOCD（VS Code / Trae）。**已固定为 F407，无需也无法再切换芯片。**
 
-### 4.1 VS Code 快捷键（推荐）
+### 4.1 VS Code 快捷键
 
 | 快捷键 | 作用 | 说明 |
 |---|---|---|
-| `F7` | 编译 | 走默认 `Debug` 预设（AUTO → 读 Enroll.h 的默认芯片） |
+| `F7` | 编译 | 走 `Debug` 预设，直接构建 F407 |
 | `F8` | 烧录 | 先编译再 OpenOCD 烧录 |
-| `Ctrl+Shift+F1` | 选芯片编译 | 弹下拉框，临时选 F103/F407/G3507，不改默认 |
-| `Ctrl+Shift+F2` | 选芯片烧录 | 同上 |
-| `Ctrl+Shift+F3` | **设定默认芯片** | 弹框选择后写回 `Enroll.h` 的 `ENROLL_MCU_TARGET` |
 
-> 三个下拉框的默认项当前都已设为 **F407**，基本一路回车即可。
+> 原先的"选芯片编译/烧录/设默认芯片"快捷键（Ctrl+Shift+F1/F2/F3）已随多 MCU 支持一并移除。
 
 ### 4.2 命令行
 
 ```bash
-cmake --preset Debug          # 配置（AUTO 读 Enroll.h，当前解析为 F407）
-cmake --build --preset Debug  # 编译
-# 或用指定芯片的预设：Debug-F103 / Debug-F407 / Debug-G3507
+cmake --preset Debug          # 配置
+cmake --build --preset Debug  # 编译（产物 OmniLayer_F407.elf）
 ```
 
 烧录/擦除走 OpenOCD 目标：`flash` / `erase`（配置在 `OpenOCD/F407_OpenOCD.cfg`）。
-
-### 4.3 切换默认芯片的两种方式
-
-1. **快捷键**：`Ctrl+Shift+F3` 选目标（脚本 `.vscode/set-default-mcu-target.ps1` 自动改写 Enroll.h）。
-2. **手动**：改 [`Enroll/Enroll.h`](../Enroll/Enroll.h) 第 28 行的 `ENROLL_MCU_TARGET` 为 `ENROLL_MCU_F103/F407/G3507`，再重新配置。
-
-> 切换后务必重新 `configure`（`F7` 会自动先 configure），AUTO 模式每次配置都会重读 Enroll.h。
 
 ---
 
 ## 5. 最近一次改动（本次交接的变更）
 
-主题：**把默认主控从 MSPM0G3507 切到 STM32F407**（对应提交 `0d867c5`）。
+主题：**把工程从"多 MCU 框架"精简为 F407 单主控专用**（删除 F103 + G3507 底层）。
 
-| 文件 | 改动 |
+**删除的文件/目录：**
+| 项 | 内容 |
 |---|---|
-| [`Enroll/Enroll.h`](../Enroll/Enroll.h) | 第 28 行默认目标 `ENROLL_MCU_G3507` → `ENROLL_MCU_F407` |
-| [`.vscode/tasks.json`](../.vscode/tasks.json) | 三个下拉框默认项 `Debug-G3507`/`ENROLL_MCU_G3507` → `Debug-F407`/`ENROLL_MCU_F407` |
+| `Core/STM32F103/` | F103 核心层（gpio/usart/tim/pwm/adc/exti/Encoder + soft_i2c/soft_spi + delay + 链接脚本） |
+| `Core/MSPM0G3507/` | G3507 核心层（同上） |
+| `Drivers/Drivers_STM32F1/` | F1 标准库 + 启动文件 |
+| `Enroll/103_hw_config.h`、`G3507_hw_config.h`、`G3507_pinmux.h` | F103/G3507 板级映射 |
+| `OpenOCD/F103_OpenOCD.cfg`、`G3507_OpenOCD.cfg` | F103/G3507 烧录配置 |
+| `MDK_ARM/MDK_ARM_F103/` | Keil 的 F103 工程 |
+| `.vscode/set-default-mcu-target.ps1` | 切换默认 MCU 的脚本（已无意义） |
 
-**改动原因**：原默认目标是 G3507，但仓库里**没有 TI 的 SDK 源码**（`Drivers/Drivers_M0G3507/` 目录不存在），导致 CMake 报 `Cannot find source file ... startup_mspm0g350x_gcc.c`。而本项目主控就是 F407，故直接切到 F407。
+**精简的共享代码（删除 `#if ENROLL_MCU_TARGET == F103/G3507` 分支，折叠为纯 F407）：**
+- `Enroll/Enroll.h`：移除 MCU 目标常量与 `#if` 选配置，固定 `#include "407_hw_config.h"`。
+- `API/inc/*.h` + `API/src/*.c`：删除 F103/G3507 的 `#include` 与函数分发分支，直接调 `F407_*`。
+- `SYSTEM/sys.c`/`IrqPriority.h`/`BusRate.h`：删除 G3507 分支，保留 F407 配置。
+- `app/My_Usart/*`、`app/Control_Task/*`、`A_Entry/main.c`：删除 G3507/F103 相关分支与注释。
+- `BSP/MPU6050/MPU6050.h`：DMP 参数折叠为 STM32 值。
 
-**验证结果（实测）**：
+**构建系统：**
+- `CMakeLists.txt`：移除 `MCU_TARGET`/AUTO 检测与 F103/G3507 分支，F407 配置直接内联；不再定义 `ENROLL_MCU_*` 宏。
+- `CMakePresets.json`：删除 `Debug-F103/F407/G3507`，保留 `Debug`/`Release`。
+- `.vscode/tasks.json`/`keybindings.json`：删除选芯片任务与快捷键，保留 `F7`编译/`F8`烧录。
+- `.vscode/settings.json`/`c_cpp_properties.json`：删除 F103/G3507 相关路径。
+
+**验证结果（实测，与精简前逐字节一致）：**
 ```
-Resolved MCU target: F407
 [42/42] Linking C executable artifacts/OmniLayer_F407.elf
 FLASH: 53964 B / 512 KB (10.29%)
 RAM:    5584 B / 128 KB (4.26%)
@@ -114,10 +116,10 @@ RAM:    5584 B / 128 KB (4.26%)
 
 ## 7. 已知问题与注意事项
 
-1. **G3507 暂不可编译**：`Drivers/Drivers_M0G3507/`（TI SDK）不在仓库中。如需编译 G3507，须先从 TI 官网获取 MSPM0 SDK 并补到该目录。`.vscode/settings.json` 已把该路径排除索引。
-2. **Middlewares 不入库**：FreeRTOS-LTS、USB 协议栈、TI SDK 等不上传 GitHub，需自行到官网获取（见 README 注意事项）。
-3. **Keil 工程不同步**：`MDK_ARM/` 保留兼容但不保证最新，主力环境是 VS Code + CMake；用 Keil 需自行补齐缺失配置。
-4. **PWM 配置待核对**：`main.c` 第 64 行 `API_PWM_Init(API_PWM_TIM1, 400-1, 8-1)` 是注释里标注的 G3507 参数；F407 若要驱动舵机通常用 50Hz（注释建议 `ARR=4000-1, PSC=840-1`）。**接蜘蛛舵机前请按 F407 重新核算定时器参数。**
+1. **已精简为 F407 单主控**：F103/G3507 的代码、配置与构建选项已全部移除，无法再切换芯片。若未来需要多 MCU，请参考原始 OmniLayer 框架仓库重新引入。
+2. **Middlewares 不入库**：FreeRTOS-LTS、USB 协议栈等不上传 GitHub，需自行到官网获取（见 README 注意事项）。
+3. **Keil 工程不同步**：`MDK_ARM/` 仅保留 `MDK_ARM_F407`，但不保证最新，主力环境是 VS Code + CMake；用 Keil 需自行补齐缺失配置。
+4. **PWM 配置待核对**：`main.c` 中 `API_PWM_Init(API_PWM_TIM1, 400-1, 8-1)` 是旧 G3507 参数；F407 若要驱动舵机通常用 50Hz（建议 `ARR=4000-1, PSC=840-1`）。**接蜘蛛舵机前请按 F407 重新核算定时器参数。**
 5. **分支策略**：`main` 为裸机主线，`FreeRTOS` 为 RTOS 主线；蜘蛛机器人若上 RTOS 需切到对应分支推进。
 
 ---
@@ -141,7 +143,7 @@ RAM:    5584 B / 128 KB (4.26%)
 1. 先读本文件 → 再看 [`README.md`](../README.md) → 深入看 [`docs/arch-guide.md`](arch-guide.md)。
 2. 确认环境：装好 `gcc-arm-none-eabi`、`Ninja`、`OpenOCD`，VS Code 装 CMake Tools。
 3. 按 `F7` 应能直接编译出 `OmniLayer_F407.elf`（Flash 占用约 10%）。
-4. 改板级接线/引脚：改 `Enroll/407_hw_config.h`；改默认芯片：`Ctrl+Shift+F3`。
+4. 改板级接线/引脚：改 `Enroll/407_hw_config.h`（本工程已固定 F407，无需切换芯片）。
 5. 遇到问题先查第 7 节"已知问题"。
 
 ---
