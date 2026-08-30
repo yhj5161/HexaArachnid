@@ -59,6 +59,19 @@ API_I2C_SpeedTypeDef API_I2C_GetSpeed(void);
 void API_I2C_DelayOff(void);
 void API_I2C_DelayOn(void);
 
+/*
+ * 总线互斥锁（FreeRTOS 环境）:
+ * 软件 I2C 的"当前总线/速率/延时"是全局状态，多任务并发访问
+ * 不同总线（如 MPU6050@I2C1 与 OLED@I2C2）时必须用本接口串行化:
+ *   API_I2C_Lock();
+ *   API_I2C_SelectBus(...); API_I2C_SetSpeed(...);   // 拿到锁后重新选择
+ *   API_I2C_Start(); ... API_I2C_Stop();             // 一笔完整事务
+ *   API_I2C_Unlock();
+ * 调度器未启动时（初始化阶段）为无锁直通。
+ */
+void API_I2C_Lock(void);
+void API_I2C_Unlock(void);
+
 /* I2C 起始条件。 */
 void API_I2C_Start(void);
 /* I2C 停止条件。 */

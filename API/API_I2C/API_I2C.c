@@ -4,6 +4,11 @@
 #include "Delay.h"
 #include "My_Usart/My_Usart.h"
 
+/* FreeRTOS 互斥锁：串行化多任务对软件 I2C 全局状态的访问 */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
 /* ===================== 模块状态变量 ===================== */
 
 /*
@@ -13,6 +18,9 @@ static const API_I2C_Config_t *s_i2cTable;
 static uint8_t s_i2cCount;
 static volatile API_I2C_BusId_t s_activeBusId = API_I2C1;
 static volatile API_I2C_SpeedTypeDef s_i2cSpeed = API_I2C_SPEED_100K;
+
+/* 软件 I2C 全局状态（当前总线/速率/延时）的互斥锁。 */
+static SemaphoreHandle_t s_i2cMutex;
 
 /* ===================== 内部辅助 ===================== */
 
@@ -98,6 +106,38 @@ void API_I2C_DelayOn(void)
 }
 
 /*
+ * 总线互斥锁：获取/释放。
+ * - 锁覆盖范围必须是一整笔事务（SelectBus 到 Stop），且拿到锁后
+ *   需重新 SelectBus/SetSpeed，因为等锁期间其他任务可能已切换总线。
+ * - 调度器未启动时为单线程环境（外设初始化阶段），直接直通。
+ */
+void API_I2C_Lock(void)
+{
+	if (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)
+	{
+		return;
+	}
+
+	if (s_i2cMutex != 0)
+	{
+		(void)xSemaphoreTake(s_i2cMutex, portMAX_DELAY);
+	}
+}
+
+void API_I2C_Unlock(void)
+{
+	if (xTaskGetSchedulerState() != taskSCHEDULER_RUNNING)
+	{
+		return;
+	}
+
+	if (s_i2cMutex != 0)
+	{
+		(void)xSemaphoreGive(s_i2cMutex);
+	}
+}
+
+/*
  * 设置软件 I2C 速率档位。
  */
 void API_I2C_SetSpeed(API_I2C_SpeedTypeDef speed)
@@ -142,6 +182,12 @@ void API_I2C_Init(void)
 {
 	uint8_t i;
 	API_I2C_BusId_t prevBus;
+
+	/* 创建总线互斥锁（幂等，可在调度器启动前调用）。 */
+	if (s_i2cMutex == 0)
+	{
+		s_i2cMutex = xSemaphoreCreateMutex();
+	}
 
 	if ((s_i2cTable == 0) || (s_i2cCount == 0U))
 	{

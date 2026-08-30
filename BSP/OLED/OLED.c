@@ -166,11 +166,16 @@ void OLED_WriteCommand(uint8_t Command)
 	}
 	else
 	{
+		/* RTOS: 软件 I2C 全局总线与 MPU6050 等并发用户共享，
+		 * 需持锁并重新选择本机总线，防止刷帧中途被抢占后写错引脚。 */
+		API_I2C_Lock();
+		OLED_AssertBus();
 		API_I2C_Start();
 		OLED_I2C_SendByte(0x78U);		/* 从机地址+写 */
 		OLED_I2C_SendByte(0x00U);		/* 控制字节: 命令 */
 		OLED_I2C_SendByte(Command);
 		API_I2C_Stop();
+		API_I2C_Unlock();
 	}
 }
 
@@ -193,6 +198,10 @@ void OLED_WriteData(uint8_t *Data, uint8_t Count)
 	}
 	else
 	{
+		/* RTOS: 软件 I2C 全局总线与 MPU6050 等并发用户共享，
+		 * 需持锁并重新选择本机总线，防止刷帧中途被抢占后写错引脚。 */
+		API_I2C_Lock();
+		OLED_AssertBus();
 		API_I2C_Start();
 		OLED_I2C_SendByte(0x78U);		/* 从机地址+写 */
 		OLED_I2C_SendByte(0x40U);		/* 控制字节: 数据 */
@@ -201,6 +210,7 @@ void OLED_WriteData(uint8_t *Data, uint8_t Count)
 			OLED_I2C_SendByte(Data[i]);
 		}
 		API_I2C_Stop();
+		API_I2C_Unlock();
 	}
 }
 

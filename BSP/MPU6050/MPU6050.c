@@ -173,6 +173,8 @@ uint8_t MPU_Write_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 {
 	uint8_t i;
 
+	/* RTOS: 软件 I2C 的"当前总线"是全局状态，与 OLED 等并发用户共享，事务期间必须持锁 */
+	API_I2C_Lock();
 	MPU_SelectI2CBus();
 
 	API_I2C_Start();
@@ -180,6 +182,7 @@ uint8_t MPU_Write_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 	if (API_I2C_Wait_Ack())
 	{
 		API_I2C_Stop();
+		API_I2C_Unlock();
 		return 1U;
 	}
 
@@ -197,12 +200,15 @@ uint8_t MPU_Write_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 	}
 
 	API_I2C_Stop();
+	API_I2C_Unlock();
 	return 0U;
 }
 
 /* I2C 连续读 */
 uint8_t MPU_Read_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 {
+	/* RTOS: 软件 I2C 的"当前总线"是全局状态，与 OLED 等并发用户共享，事务期间必须持锁 */
+	API_I2C_Lock();
 	MPU_SelectI2CBus();
 
 	API_I2C_Start();
@@ -210,6 +216,7 @@ uint8_t MPU_Read_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 	if (API_I2C_Wait_Ack())
 	{
 		API_I2C_Stop();
+		API_I2C_Unlock();
 		return 1U;
 	}
 
@@ -235,12 +242,15 @@ uint8_t MPU_Read_Len(uint8_t addr, uint8_t reg, uint8_t len, uint8_t *buf)
 	}
 
 	API_I2C_Stop();
+	API_I2C_Unlock();
 	return 0U;
 }
 
 /* I2C 写一个字节 */
 uint8_t MPU_Write_Byte(uint8_t reg, uint8_t data)
 {
+	/* RTOS: 软件 I2C 的"当前总线"是全局状态，与 OLED 等并发用户共享，事务期间必须持锁 */
+	API_I2C_Lock();
 	MPU_SelectI2CBus();
 
 	API_I2C_Start();
@@ -248,6 +258,7 @@ uint8_t MPU_Write_Byte(uint8_t reg, uint8_t data)
 	if (API_I2C_Wait_Ack())
 	{
 		API_I2C_Stop();
+		API_I2C_Unlock();
 		return 1U;
 	}
 
@@ -258,10 +269,12 @@ uint8_t MPU_Write_Byte(uint8_t reg, uint8_t data)
 	if (API_I2C_Wait_Ack())
 	{
 		API_I2C_Stop();
+		API_I2C_Unlock();
 		return 1U;
 	}
 
 	API_I2C_Stop();
+	API_I2C_Unlock();
 	return 0U;
 }
 
@@ -270,6 +283,8 @@ uint8_t MPU_Read_Byte(uint8_t reg)
 {
 	uint8_t res;
 
+	/* RTOS: 软件 I2C 的"当前总线"是全局状态，与 OLED 等并发用户共享，事务期间必须持锁 */
+	API_I2C_Lock();
 	MPU_SelectI2CBus();
 
 	API_I2C_Start();
@@ -285,6 +300,7 @@ uint8_t MPU_Read_Byte(uint8_t reg)
 
 	res = API_I2C_ReceiveByte(0U);
 	API_I2C_Stop();
+	API_I2C_Unlock();
 
 	return res;
 }

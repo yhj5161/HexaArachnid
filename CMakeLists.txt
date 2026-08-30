@@ -76,6 +76,28 @@ set(ENROLL_LAYER_SOURCES
     ${CMAKE_SOURCE_DIR}/Enroll/Enroll.c
 )
 
+# FreeRTOS 内核（V11.1.0，官方 FreeRTOS-Kernel 仓库源码）。
+# - 移植层：portable/GCC/ARM_CM4F（Cortex-M4F 硬件浮点）
+# - 内存管理：heap_4
+# - 配置文件 FreeRTOSConfig.h 位于 RTOS/ 目录
+set(RTOS_LAYER_SOURCES
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/tasks.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/queue.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/list.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/timers.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/event_groups.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/stream_buffer.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/portable/GCC/ARM_CM4F/port.c
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/portable/MemMang/heap_4.c
+)
+
+# FreeRTOS 头文件目录（RTOS/ 存放 FreeRTOSConfig.h）。
+set(RTOS_INCLUDE_DIRS
+    ${CMAKE_SOURCE_DIR}/RTOS
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/include
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/portable/GCC/ARM_CM4F
+)
+
 # 通用头文件目录。
 set(COMMON_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/A_Entry
@@ -125,6 +147,7 @@ set(BSP_LAYER_SOURCES
 set(MCU_INCLUDE_DIRS
     ${COMMON_INCLUDE_DIRS}
     ${BSP_COMMON_INCLUDE_DIRS}
+    ${RTOS_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/BSP/BMP280
     ${CMAKE_SOURCE_DIR}/BSP/NRF24L01
     ${CMAKE_SOURCE_DIR}/BSP/QMC5883P
@@ -161,6 +184,7 @@ set(TARGET_SOURCES
     ${ENROLL_LAYER_SOURCES}
     ${BSP_LAYER_SOURCES}
     ${MCU_SOURCES}
+    ${RTOS_LAYER_SOURCES}
 )
 
 

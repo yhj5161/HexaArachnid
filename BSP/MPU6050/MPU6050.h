@@ -18,7 +18,7 @@
 #define MPU6050_DMP_STARTUP_DELAY_MS      (10U)
 #define MPU6050_DMP_FIFO_RETRY_COUNT      (8U)
 #define MPU6050_DMP_FIFO_RETRY_DELAY_MS   (1U)
-#define MPU6050_DMP_ENABLE_SELF_TEST       (1U)
+#define MPU6050_DMP_ENABLE_SELF_TEST       (0U) /* 0=关自检：自检要求静止水平摆放，机器人开机姿态随机，失败(返回8)会导致 DMP 不启动、角度恒 0 */
 
 #ifdef __cplusplus
 extern "C" {

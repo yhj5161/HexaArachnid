@@ -5,112 +5,22 @@
 extern uint32_t SystemCoreClock;
 
 /*
- * F407 参考实现采用 SysTick 时钟源 HCLK/8。
- * facUs: 1us 对应的 SysTick 计数；facMs: 1ms 对应计数。
+ * 延时实现基于 Cortex-M4 DWT 周期计数器（DWT->CYCCNT），以 HCLK 频率计数。
+ *
+ * 为什么不用 SysTick：
+ * FreeRTOS 接管 SysTick 作为内核节拍后，裸机延时若再去改写
+ * SysTick->LOAD/CTRL 会破坏系统心跳。DWT 与 SysTick 完全独立，
+ * 调度器运行前后都可安全使用，且微秒级分辨率更高（168MHz 下约 6ns）。
+ *
+ * 注意：这是忙等待（占着 CPU 空转）。RTOS 任务里的长延时请用
+ * vTaskDelay() 把 CPU 让给其他任务；本接口保留给时序敏感的驱动
+ * （软 I2C/SPI 位 bang、HC-SR04 触发脉宽等）使用。
+ *
+ * 单次延时上限：CYCCNT 为 32bit，168MHz 下约 25.5s 回绕一次，
+ * 单次 Delay_us/Delay_ms 请勿超过该范围（Delay_s 内部已分段）。
  */
-static void F407_GetDelayFactor(uint32_t *facUs, uint32_t *facMs)
-{
-	uint32_t sysclkDiv8;
 
-	sysclkDiv8 = SystemCoreClock / 8U;
-	*facUs = sysclkDiv8 / 1000000U;
-	if (*facUs == 0U)
-	{
-		*facUs = 1U;
-	}
-	*facMs = (*facUs) * 1000U;
-}
-
-/* 单次毫秒延时（受 24bit SysTick LOAD 限制）。 */
-static void F407_DelayXms(uint32_t ms)
-{
-	uint32_t facUs;
-	uint32_t facMs;
-	uint32_t temp;
-
-	if (ms == 0U)
-	{
-		return;
-	}
-
-	F407_GetDelayFactor(&facUs, &facMs);
-	SysTick->LOAD = ms * facMs;
-	SysTick->VAL = 0U;
-	SysTick->CTRL = 0x01U;
-	do
-	{
-		temp = SysTick->CTRL;
-	} while (((temp & 0x01U) != 0U) && ((temp & (1U << 16U)) == 0U));
-	SysTick->CTRL = 0U;
-	SysTick->VAL = 0U;
-}
-
-void Delay_us(uint32_t us)
-{
-	uint32_t facUs;
-	uint32_t facMs;
-	uint32_t temp;
-	uint32_t maxUsPerShot;
-
-	if (us == 0U)
-	{
-		return;
-	}
-
-	F407_GetDelayFactor(&facUs, &facMs);
-	maxUsPerShot = 0xFFFFFFU / facUs;
-	if (maxUsPerShot == 0U)
-	{
-		maxUsPerShot = 1U;
-	}
-
-	while (us > 0U)
-	{
-		uint32_t thisUs;
-
-		thisUs = (us > maxUsPerShot) ? maxUsPerShot : us;
-		SysTick->LOAD = thisUs * facUs;
-		SysTick->VAL = 0U;
-		SysTick->CTRL = 0x01U;
-		do
-		{
-			temp = SysTick->CTRL;
-		} while (((temp & 0x01U) != 0U) && ((temp & (1U << 16U)) == 0U));
-		SysTick->CTRL = 0U;
-		SysTick->VAL = 0U;
-		us -= thisUs;
-	}
-}
-
-void Delay_ms(uint32_t ms)
-{
-	/* 与常见 F407 参考工程一致：每段 540ms，兼顾超频余量。 */
-	while (ms > 540U)
-	{
-		F407_DelayXms(540U);
-		ms -= 540U;
-	}
-
-	if (ms > 0U)
-	{
-		F407_DelayXms(ms);
-	}
-}
-
-void Delay_s(uint32_t s)
-{
-	while (s > 0U)
-	{
-		Delay_ms(1000U);
-		--s;
-	}
-}
-
-/*
- * 使能 DWT 周期计数器（懒初始化，仅在首次调用 Micros 时执行一次）。
- * Cortex-M4 的 DWT->CYCCNT 以 HCLK 频率自由计数，用来做微秒级时间戳，
- * 不占用任何定时器外设。
- */
+/* 使能 DWT 周期计数器（懒初始化，首次调用延时/时间戳时执行一次）。 */
 static void F407_DwtInitOnce(void)
 {
 	if ((DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk) != 0U)
@@ -121,6 +31,55 @@ static void F407_DwtInitOnce(void)
 	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 	DWT->CYCCNT = 0U;
 	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+}
+
+void Delay_us(uint32_t us)
+{
+	uint32_t ticks;
+	uint32_t start;
+
+	if (us == 0U)
+	{
+		return;
+	}
+
+	F407_DwtInitOnce();
+	ticks = us * (SystemCoreClock / 1000000U);
+	start = DWT->CYCCNT;
+
+	/* 无符号差值比较，天然免疫 CYCCNT 回绕。 */
+	while ((DWT->CYCCNT - start) < ticks)
+	{
+	}
+}
+
+void Delay_ms(uint32_t ms)
+{
+	uint32_t ticks;
+	uint32_t start;
+
+	if (ms == 0U)
+	{
+		return;
+	}
+
+	F407_DwtInitOnce();
+	/* 168MHz 下 ms * 168000 在 25.5s 内不溢出，常规毫秒延时远小于此。 */
+	ticks = ms * (SystemCoreClock / 1000U);
+	start = DWT->CYCCNT;
+
+	while ((DWT->CYCCNT - start) < ticks)
+	{
+	}
+}
+
+void Delay_s(uint32_t s)
+{
+	while (s > 0U)
+	{
+		Delay_ms(1000U);
+		--s;
+	}
 }
 
 /*
