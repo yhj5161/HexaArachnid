@@ -53,16 +53,6 @@ static const API_USART_Config_t s_usartTable[] =
 };
 #undef ENROLL_USART_ITEM
 
-/* ENCODER 编码器配置表：把 HW_ENCODER_MAP 展开成 API_Encoder_Config_t。 */
-#define ENROLL_ENCODER_ITEM(id, coreId, chA, portA, pinA, chB, portB, pinB) \
-	{ id, coreId, chA, portA, pinA, chB, portB, pinB },
-
-static const API_Encoder_Config_t s_encoderTable[] =
-{
-	HW_ENCODER_MAP(ENROLL_ENCODER_ITEM)
-};
-#undef ENROLL_ENCODER_ITEM
-
 /*************************** I2C/SPI协议配置层 ************************/
 /*******************************I2C***********************************/
 /* I2C 配置表：把 HW_I2C_MAP 展开成 API_I2C_Config_t。 */
@@ -119,22 +109,6 @@ static const OLED_SpiCtrlConfig_t s_oledSpiCtrlTable[] =
 	HW_OLED_SPI_CTRL_MAP(ENROLL_OLED_SPI_CTRL_ITEM)
 };
 #undef ENROLL_OLED_SPI_CTRL_ITEM
-
-/* MPU6050 EXTI 表：登记外部中断输入引脚。 */
-static const API_EXTI_Config_t s_mpuExtiTable[] =
-{
-	{ 0U, HW_MPU6050_INT_PORT, HW_MPU6050_INT_PIN }
-};
-
-/* TB6612 配置表：把 HW_TB6612_MAP 展开成 TB6612_Config_t。 */
-#define ENROLL_TB6612_ITEM(ain1Port, ain1Pin, ain2Port, ain2Pin, bin1Port, bin1Pin, bin2Port, bin2Pin) \
-	{ ain1Port, ain1Pin, ain2Port, ain2Pin, bin1Port, bin1Pin, bin2Port, bin2Pin },
-
-static const TB6612_Config_t s_tb6612Table[] =
-{
-	HW_TB6612_MAP(ENROLL_TB6612_ITEM)
-};
-#undef ENROLL_TB6612_ITEM
 
 /*******************************HCSR04***********************************/
 /* HC-SR04 配置表：把 HW_HCSR04_MAP 展开成 HCSR04_Config_t。 */
@@ -226,33 +200,7 @@ void Enroll_OLED_Register(void)
 	OLED_RegisterSpiCtrl(s_oledSpiCtrlTable, HW_OLED_SPI_CTRL_COUNT);
 }
 
-/*
- * MPU6050 注册：
- * 1) 登记 EXTI 资源表；
- * 2) 绑定 MPU6050 中断回调；
- * 3) 配置触发沿与优先级。
- */
-void Enroll_MPU6050_Register(void)
-{
-	API_EXTI_Register(s_mpuExtiTable, 1U);
-	/* 同一 id 可继续追加其他回调。 */
-	API_EXTI_AddIrqHandler(s_mpuExtiTable[0].id, (API_EXTI_IrqHandler_t)MPU6050_EXTI_Callback, NULL);
-	/* API_EXTI_AddIrqHandler(s_mpuExtiTable[0].id, Other_EXTI_Callback, userPtr); */
-	API_EXTI_Init(s_mpuExtiTable[0].id, API_EXTI_TRIGGER_RISING, IRQ_PRIO_MPU6050, IRQ_SUB_PRIO_MPU6050);
-}
-
-/* TB6612 注册 */
-void Enroll_TB6612_Register(void)
-{
-	TB6612_Register(s_tb6612Table, HW_TB6612_COUNT);
-}
-
 /* 编码器注册 */
-void Enroll_Encoder_Register(void)
-{
-	API_Encoder_Register(s_encoderTable, HW_ENCODER_COUNT);
-}
-
 /* HC-SR04 超声波注册：登记板级 Trig/Echo 引脚表。 */
 void Enroll_HCSR04_Register(void)
 {

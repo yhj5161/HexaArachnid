@@ -3,9 +3,7 @@
 #include "tim.h"
 #include "usart.h"
 #include "My_Usart/My_Usart.h"
-#include "Control/Control.h"
 #include "KEY.h"
-#include "Encoder.h"
 
 /* 程序运行的时间戳（s） */
 uint32_t Timer_Bsp_t = 0;
@@ -13,58 +11,9 @@ uint32_t Timer_Bsp_t = 0;
 /* printf节拍 */
 volatile uint8_t print_task_flag = 0;
 
-/* 编码器节拍 */
-volatile uint8_t Encoder_flag = 0;
-
 /* 串口数据包解析结果缓存（新包到达时自动刷新） */
 int16_t USART_Packet_Data[USART_PACKET_DATA_LEN] = {0};
 uint8_t USART_Packet_Count = 0;
-
-/*
- * 定时器回调函数：
- * 由 API_TIM 的通用中断分发层在更新中断到来后调用。
- * API_TIM1: 1ms -> PID 2ms
- */
-void Control_Task_TIM_Callback(API_TIM_Id_t id)
-{
-	static uint8_t pid_2ms_tick = 0U;
-
-	if (id != API_TIM1)
-	{
-		return;
-	}
-
-	pid_2ms_tick++;
-
-	if (pid_2ms_tick >= 2U)
-	{
-		pid_2ms_tick = 0U;
-		pid_task_flag = 1U;
-	}
-}
-
-/*
- * API_TIM2: 1ms -> Encoder 20ms
- */
-void Control_Task_Encoder_Callback(API_TIM_Id_t id)
-{
-	static uint8_t Encoder_tick = 0U;
-
-	if (id != API_TIM2)
-	{
-		return;
-	}
-
-	Encoder_tick++;
-
-	if (Encoder_tick >= 20)
-	{
-		Encoder_tick = 0U;
-		Encoder1_Speed = API_Encoder_GetSpeed(API_ENCODER_1);
-		Encoder2_Speed = API_Encoder_GetSpeed(API_ENCODER_2);
-		Encoder_flag = 1U;
-	}
-}
 
 /*
  * API_TIM3: 1ms -> Key + printf + time
