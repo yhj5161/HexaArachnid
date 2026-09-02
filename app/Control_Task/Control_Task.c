@@ -4,16 +4,14 @@
 #include "usart.h"
 #include "My_Usart/My_Usart.h"
 #include "KEY.h"
+#include "JY61P/JY61P.h"
+#include "SU03T/SU03T.h"
 
 /* 程序运行的时间戳（s） */
 uint32_t Timer_Bsp_t = 0;
 
 /* printf节拍 */
 volatile uint8_t print_task_flag = 0;
-
-/* 串口数据包解析结果缓存（新包到达时自动刷新） */
-int16_t USART_Packet_Data[USART_PACKET_DATA_LEN] = {0};
-uint8_t USART_Packet_Count = 0;
 
 /*
  * API_TIM3: 1ms -> Key + printf + time
@@ -47,13 +45,15 @@ void Control_Task_Housekeeping_Callback(API_TIM_Id_t id)
 }
 
 /*
- * USART 中断回调协议解析：
- * 协议格式：s12,-34,56e
+ * USART 中断回调：读取 RX 字节并分发到对应模块。
+ * - USART1 → JY61P 姿态模块（主动上报，入环形缓冲）
+ * - UART5  → SU-03T 语音模块（入环形缓冲）
  */
 void Control_Task_USART_Callback(API_USART_Id_t id)
 {
 	uint32_t data;
 	uint8_t rxValid;
+
 	data = 0U;
 	rxValid = 0U;
 	usart_irq_dispatch_by_id(id, &data, &rxValid);
@@ -61,7 +61,11 @@ void Control_Task_USART_Callback(API_USART_Id_t id)
 	{
 		if (id == API_USART1)
 		{
-			usart_Dispose_Data(USART1, &USART_DataTypeStruct, (uint8_t)data);
+			JY61P_RxPush((uint8_t)data);
+		}
+		else if (id == API_USART5)
+		{
+			SU03T_RxPush((uint8_t)data);
 		}
 	}
 }

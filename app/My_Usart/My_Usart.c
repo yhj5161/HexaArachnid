@@ -18,6 +18,8 @@ typedef struct
 static USART_TxAsyncQueue g_usart_tx_q1 = {USART1, 0U, 0U, {0}};
 static USART_TxAsyncQueue g_usart_tx_q2 = {USART2, 0U, 0U, {0}};
 static USART_TxAsyncQueue g_usart_tx_q3 = {USART3, 0U, 0U, {0}};
+static USART_TxAsyncQueue g_usart_tx_q4 = {USART4, 0U, 0U, {0}};
+static USART_TxAsyncQueue g_usart_tx_q5 = {UART5, 0U, 0U, {0}};
 
 /* 根据 USART 实例返回对应发送队列。 */
 static USART_TxAsyncQueue *usart_get_tx_queue(USART_TypeDef *USARTx)
@@ -33,6 +35,14 @@ static USART_TxAsyncQueue *usart_get_tx_queue(USART_TypeDef *USARTx)
 	if (USARTx == USART3)
 	{
 		return &g_usart_tx_q3;
+	}
+	if (USARTx == USART4)
+	{
+		return &g_usart_tx_q4;
+	}
+	if (USARTx == UART5)
+	{
+		return &g_usart_tx_q5;
 	}
 	return 0;
 }
@@ -70,6 +80,14 @@ static USART_TypeDef *usart_id_to_instance(API_USART_Id_t id)
 	if (id == API_USART3)
 	{
 		return USART3;
+	}
+	if (id == API_USART4)
+	{
+		return USART4;
+	}
+	if (id == API_USART5)
+	{
+		return UART5;
 	}
 	return 0;
 }
@@ -121,9 +139,6 @@ static void usart_write_data(USART_TypeDef *USARTx, uint8_t data)
 	USARTx->DR = data;
 }
 
-/* 全局接收解析状态。 */
-USART_DataType USART_DataTypeStruct;
-
 /*
  * 把 USARTx 寄存器实例转换为 API 层 ID。
  * 这样可以复用 API_USART_WriteByte 完成阻塞兜底发送。
@@ -148,6 +163,16 @@ static uint8_t usart_instance_to_id(USART_TypeDef *USARTx, API_USART_Id_t *id)
 	if (USARTx == USART3)
 	{
 		*id = API_USART3;
+		return 1U;
+	}
+	if (USARTx == USART4)
+	{
+		*id = API_USART4;
+		return 1U;
+	}
+	if (USARTx == UART5)
+	{
+		*id = API_USART5;
 		return 1U;
 	}
 	return 0U;
@@ -411,195 +436,5 @@ void usart_irq_dispatch_by_id(API_USART_Id_t id, uint32_t *rxData, uint8_t *rxVa
 	if ((usart_is_tx_irq_enabled(instance) != 0U) && (usart_is_tx_ready(instance) != 0U))
 	{
 		usart_tx_irq_handler(instance);
-	}
-}
-
-/*
- * 串口数据包解析：
- * 协议格式：s12,-34,56e
- * 解析完成后：state=2，可通过 USART_Deal 读取 data[]。
- */
-void usart_Dispose_Data(USART_TypeDef *USARTx, USART_DataType *USART_DataTypeStruct, uint8_t RxData)
-{
-	(void)USARTx;
-
-	switch (USART_DataTypeStruct->state)
-	{
-	case 0:
-		if (RxData == 's')
-		{
-			USART_DataTypeStruct->state = 1U;
-			USART_DataTypeStruct->current_index = 0U;
-			USART_DataTypeStruct->buffer_len = 0U;
-			memset(USART_DataTypeStruct->buffer, 0, sizeof(USART_DataTypeStruct->buffer));
-		}
-		break;
-
-	case 1:
-		if (RxData == 'e')
-		{
-			if (USART_DataTypeStruct->buffer_len > 0U)
-			{
-				int16_t value;
-				uint8_t i;
-				uint8_t is_negative;
-
-				value = 0;
-				i = 0U;
-				is_negative = 0U;
-				if (USART_DataTypeStruct->buffer[0] == '-')
-				{
-					is_negative = 1U;
-					i = 1U;
-				}
-
-				for (; i < USART_DataTypeStruct->buffer_len; i++)
-				{
-					if ((USART_DataTypeStruct->buffer[i] >= '0') && (USART_DataTypeStruct->buffer[i] <= '9'))
-					{
-						value = (int16_t)(value * 10 + (USART_DataTypeStruct->buffer[i] - '0'));
-					}
-					else
-					{
-						USART_DataTypeStruct->state = 0U;
-						break;
-					}
-				}
-
-				if (is_negative != 0U)
-				{
-					value = (int16_t)(-value);
-				}
-
-				if (USART_DataTypeStruct->current_index < Data_len)
-				{
-					USART_DataTypeStruct->data[USART_DataTypeStruct->current_index] = (uint16_t)value;
-					USART_DataTypeStruct->count = (uint8_t)(USART_DataTypeStruct->current_index + 1U);
-				}
-			}
-			USART_DataTypeStruct->state = 2U;
-		}
-		else if (RxData == ',')
-		{
-			if (USART_DataTypeStruct->buffer_len > 0U)
-			{
-				int16_t value;
-				uint8_t i;
-				uint8_t is_negative;
-
-				value = 0;
-				i = 0U;
-				is_negative = 0U;
-				if (USART_DataTypeStruct->buffer[0] == '-')
-				{
-					is_negative = 1U;
-					i = 1U;
-				}
-
-				for (; i < USART_DataTypeStruct->buffer_len; i++)
-				{
-					if ((USART_DataTypeStruct->buffer[i] >= '0') && (USART_DataTypeStruct->buffer[i] <= '9'))
-					{
-						value = (int16_t)(value * 10 + (USART_DataTypeStruct->buffer[i] - '0'));
-					}
-					else
-					{
-						USART_DataTypeStruct->state = 0U;
-						break;
-					}
-				}
-
-				if (is_negative != 0U)
-				{
-					value = (int16_t)(-value);
-				}
-
-				if (USART_DataTypeStruct->current_index < Data_len)
-				{
-					USART_DataTypeStruct->data[USART_DataTypeStruct->current_index] = (uint16_t)value;
-					USART_DataTypeStruct->current_index++;
-				}
-
-				USART_DataTypeStruct->buffer_len = 0U;
-				memset(USART_DataTypeStruct->buffer, 0, sizeof(USART_DataTypeStruct->buffer));
-			}
-		}
-		else if (((RxData >= '0') && (RxData <= '9')) || (RxData == '-'))
-		{
-			if (USART_DataTypeStruct->buffer_len < 15U)
-			{
-				if ((RxData == '-') && (USART_DataTypeStruct->buffer_len != 0U))
-				{
-					USART_DataTypeStruct->state = 0U;
-				}
-				else
-				{
-					USART_DataTypeStruct->buffer[USART_DataTypeStruct->buffer_len++] = RxData;
-				}
-			}
-			else
-			{
-				USART_DataTypeStruct->state = 0U;
-			}
-		}
-		else
-		{
-			USART_DataTypeStruct->state = 0U;
-		}
-		break;
-
-	case 2:
-		if (RxData == 's')
-		{
-			USART_DataTypeStruct->state = 1U;
-			USART_DataTypeStruct->current_index = 0U;
-			USART_DataTypeStruct->count = 0U;
-			USART_DataTypeStruct->buffer_len = 0U;
-			memset(USART_DataTypeStruct->buffer, 0, sizeof(USART_DataTypeStruct->buffer));
-		}
-		break;
-
-	default:
-		USART_DataTypeStruct->state = 0U;
-		break;
-	}
-}
-
-/* 安全读取解析结果。 */
-int16_t USART_Deal(USART_DataType *pData, int8_t index)
-{
-	if ((pData == 0) || (index < 0) || ((uint8_t)index >= pData->count))
-	{
-		return 0;
-	}
-
-	return (int16_t)pData->data[(uint8_t)index];
-}
-
-/* 测试示例 */
-/* 串口数据包解析测试：收到完整数据包(s12,-34,56e)后回传解析结果 */
-void USART_Test(void)
-{
-	if (USART_DataTypeStruct.state == 2U)
-	{
-		uint8_t i;
-		uint8_t count = USART_DataTypeStruct.count;
-		int16_t values[10];
-		for (i = 0U; i < count; i++)
-		{
-			values[i] = USART_Deal(&USART_DataTypeStruct, (int8_t)i);
-		}
-		USART_DataTypeStruct.state = 0U;
-
-		usart_printf(USART1, "Packet[%d]: ", count);
-		for (i = 0U; i < count; i++)
-		{
-			if (i > 0U)
-			{
-				usart_printf(USART1, ",");
-			}
-			usart_printf(USART1, "%d", values[i]);
-		}
-		usart_printf(USART1, "\r\n");
 	}
 }

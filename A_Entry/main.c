@@ -22,6 +22,8 @@
 #include "KEY.h"
 #include "OLED.h"
 #include "HCSR04.h"
+#include "JY61P/JY61P.h"
+#include "SU03T/SU03T.h"
 
 /*FreeRTOS 内核*/
 #include "FreeRTOS.h"
@@ -41,23 +43,28 @@
  * ┌─────────────┬──────┬──────────────────────────────────────────┐
  * │ 任务        │ 优先级│ 职责                                     │
  * ├─────────────┼──────┼──────────────────────────────────────────┤
- * │ ControlTask │ +3   │ 按键响应、摄像头数据包处理（1ms 轮询）   │
+ * │ ControlTask │ +3   │ 按键响应（1ms 轮询）                      │
+ * │ SensorTask  │ +2   │ JY61P 姿态解析 + SU-03T 语音指令（5ms）   │
  * │ DisplayTask │ +1   │ OLED 刷新 + 串口打印（50ms 周期）         │
  * └─────────────┴──────┴──────────────────────────────────────────┘
  *
  * 任务栈大小单位是 word（1 word = 4 字节），512 word = 2KB。
  */
 #define TASK_PRIO_CONTROL     (tskIDLE_PRIORITY + 3U)
+#define TASK_PRIO_SENSOR      (tskIDLE_PRIORITY + 2U)
 #define TASK_PRIO_DISPLAY     (tskIDLE_PRIORITY + 1U)
 
 #define TASK_STACK_CONTROL    (512U)
+#define TASK_STACK_SENSOR     (384U)
 #define TASK_STACK_DISPLAY    (512U)
 
 /* 任务周期（ms），对应 pdMS_TO_TICKS 换算后的节拍数 */
-#define TASK_PERIOD_CONTROL   (1U)    /* 1ms：轮询 TIM 节拍标志 */
+#define TASK_PERIOD_CONTROL   (1U)    /* 1ms：轮询 */
+#define TASK_PERIOD_SENSOR    (5U)    /* 200Hz：JY61P 报文解析/语音 */
 #define TASK_PERIOD_DISPLAY   (50U)   /* 20Hz：OLED/串口打印 */
 
 static void ControlTask(void *argument);
+static void SensorTask(void *argument);
 static void DisplayTask(void *argument);
 
 int main(void)
@@ -65,7 +72,7 @@ int main(void)
 /* 系统时钟配置初始化 */
 	SYS_Init();
 /* 注册层：注册相关资源，登记资源映射 */
-	Enroll_USART_Register();				/* USART 资源注册 */
+	Enroll_USART_Register();				/* USART 资源注册（USART1/3 + UART5） */
 	Enroll_PWM_Register();					/* PWM 资源注册 */
 	Enroll_ADC_Register();					/* ADC 资源注册 */
 	Enroll_TIM_Register();					/* TIM 资源注册 */
@@ -77,13 +84,14 @@ int main(void)
 	Enroll_HCSR04_Register();				/* HC-SR04 超声波 资源注册 */
 
 	/* 注册后绑定中断回调*/
-	Enroll_USART_RegisterIrqHandler(Control_Task_USART_Callback); /* USART 中断回调注册 */
+	Enroll_USART_RegisterIrqHandler(Control_Task_USART_Callback); /* USART 中断回调：JY61P/SU-03T */
 	API_TIM_RegisterIrqHandler(API_TIM3, Control_Task_Housekeeping_Callback);    /* TIM3: Housekeeping */
 
 /* 初始化层：初始化相关外设，启动硬件功能 */
-	API_USART_Init(API_USART1, 115200U); // 初始化 USART1，波特率 115200
-	API_USART_Init(API_USART2, 115200U); // 初始化 USART2，波特率 115200
-	API_USART_Init(API_USART3, 115200U); // 初始化 USART3，波特率 115200
+	API_USART_Init(API_USART1, 115200U);	/* USART1: JY61P 姿态模块（115200） */
+	API_USART_Init(API_USART3, 115200U);	/* USART3: 调试打印 */
+	API_USART_Init(API_USART4, 115200U);	/* UART4: 调试口（PA0=TX, PA1=RX，备用调试串口） */
+	API_USART_Init(API_USART5, 115200U);	/* UART5: SU-03T 离线语音模块（115200） */
 	/* PWM 初始化（F407）:
 	 * 例：API_PWM_TIM1 -> 50Hz, ARR=4000-1, PSC=840-1（驱动舵机常用 50Hz）
 	 * 接蜘蛛舵机前请按 F407 定时器重新核算 ARR/PSC。
@@ -102,10 +110,13 @@ int main(void)
 	LED_Init(LED_LOW); // 初始化LED-低电平
 	KEY_Init(); // 初始化按键
 	OLED_Init(OLED_IF_SPI);		 		/* OLED_IF_I2C(4针) / OLED_IF_SPI(7针) */
+	JY61P_Init();						/* JY61P 姿态模块（数据在 SensorTask 解析） */
+	SU03T_Init();						/* SU-03T 语音模块 */
 	// HCSR04_Init(HCSR04_1); /* HC-SR04 超声波初始化（Trig=PB6, Echo=PB7） */
 
 /* ======================== 创建任务，启动调度器 ======================== */
 	(void)xTaskCreate(ControlTask, "control", TASK_STACK_CONTROL, NULL, TASK_PRIO_CONTROL, NULL);
+	(void)xTaskCreate(SensorTask, "sensor", TASK_STACK_SENSOR, NULL, TASK_PRIO_SENSOR, NULL);
 	(void)xTaskCreate(DisplayTask, "display", TASK_STACK_DISPLAY, NULL, TASK_PRIO_DISPLAY, NULL);
 
 	/* 启动调度器：从这里开始控制权交给 FreeRTOS，正常情况下不会返回。 */
@@ -118,8 +129,7 @@ int main(void)
 }
 
 /*
- * 控制任务：1ms 轮询 TIM 中断置起的节拍标志。
- * 对应原裸机 while(1) 中的按键/PID/相机包处理。
+ * 控制任务：1ms 轮询，当前职责为按键。
  */
 static void ControlTask(void *argument)
 {
@@ -148,44 +158,54 @@ static void ControlTask(void *argument)
 			LED_Control(LED3, LED_LOW);
 		}
 
-	/* 摄像头数据包接收示例：固定 3 个数据 s88,-93,104e */
-		if (USART_DataTypeStruct.state == 2U)
-		{
-			uint8_t i;
-			/* 1. 缓存解析结果到全局数组 */
-			USART_Packet_Count = USART_DataTypeStruct.count;
-			for (i = 0U; i < USART_Packet_Count; i++)
-			{
-				USART_Packet_Data[i] = USART_Deal(&USART_DataTypeStruct, (int8_t)i);
-			}
-			USART_DataTypeStruct.state = 0U;
-
-			/* 2. 校验数据完整性并读取 */
-			if (USART_Packet_Count == 3U)
-			{
-				int16_t cam_x = USART_Packet_Data[0];
-				int16_t cam_y = USART_Packet_Data[1];
-				int16_t cam_z = USART_Packet_Data[2];
-				usart_printf(USART1, "Cam X=%d, Y=%d, Z=%d\r\n", cam_x, cam_y, cam_z);
-			}
-		}
-
 	/* HC-SR04 超声波测距测试（单次 + 5 次平均） */
 		// float dist = HCSR04_GetDistance(HCSR04_1);
 		// float distAvg = HCSR04_GetDistanceAvg(HCSR04_1, 5U);
-		// usart_printf(USART1, "dist=%.1f cm, avg=%.1f cm\r\n", dist, distAvg);
+		// usart_printf(PRINTF_USART, "dist=%.1f cm, avg=%.1f cm\r\n", dist, distAvg);
 
 		vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_CONTROL));
 	}
 }
 
 /*
+ * 传感器任务：JY61P 姿态 + SU-03T 语音。
+ * - JY61P_Task() 解析 USART1 环形缓冲，主动上报，未就绪立即返回不阻塞。
+ * - SU-03T 先把原始字节打出来，方便确认上位机配置的输出格式。
+ */
+static void SensorTask(void *argument)
+{
+	(void)argument;
+	TickType_t lastWake = xTaskGetTickCount();
+
+	for (;;)
+	{
+	/* JY61P 姿态解析 */
+		JY61P_Task();
+		(void)JY61P_GetUpdateFlags();
+
+	/* SU-03T 语音：原始字节填充调试口（确认格式阶段，后续替换成协议解析） */
+		{
+			uint8_t b;
+			while (SU03T_GetByte(&b) != 0U)
+			{
+				usart_printf(PRINTF_USART, "SV:0x%02X ", (unsigned int)b);
+			}
+		}
+
+		vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TASK_PERIOD_SENSOR));
+	}
+}
+
+/*
  * 显示任务：OLED 刷新 + 串口打印，最低优先级。
- * OLED 走软件 SPI，放独立任务后不再拖累控制环。
+ * OLED 走软件 SPI，放独立任务后不再拖累控制任务。
  */
 static void DisplayTask(void *argument)
 {
 	(void)argument;
+	float roll = 0.0f;
+	float pitch = 0.0f;
+	float yaw = 0.0f;
 
 	for (;;)
 	{
@@ -193,12 +213,18 @@ static void DisplayTask(void *argument)
 		if (print_task_flag != 0U)
 		{
 			print_task_flag = 0U;
-			// usart_printf(USART1, "key: %lu\r\n", Key);
-			// usart_printf(USART1, "Timer_Bsp_t: %lu\r\n", Timer_Bsp_t);
+			// usart_printf(PRINTF_USART, "key: %lu\r\n", Key);
+			// usart_printf(PRINTF_USART, "Timer_Bsp_t: %lu\r\n", Timer_Bsp_t);
+			usart_printf(PRINTF_USART, "R=%.1f P=%.1f Y=%.1f\r\n", (double)roll, (double)pitch, (double)yaw);
 		}
+
+	/* JY61P 姿态角 */
+		JY61P_GetAngle(&roll, &pitch, &yaw);
 
 	/* OLED刷新 */
 		OLED_Printf(0, 0, OLED_8X16, "%d", Timer_Bsp_t);
+		OLED_Printf(0, 16, OLED_8X16, "R%+.1f P%+.1f", (double)roll, (double)pitch);
+		OLED_Printf(0, 32, OLED_8X16, "Y%+.1f", (double)yaw);
 		OLED_Update();
 
 		vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_DISPLAY));

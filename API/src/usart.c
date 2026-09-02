@@ -3,16 +3,19 @@
 
 static const API_USART_Config_t *s_usartTable;
 static uint8_t s_usartCount;
-static API_USART_IrqHandler_t s_usartIrqHandlers[API_USART3 + 1U];
+static API_USART_IrqHandler_t s_usartIrqHandlers[API_USART5 + 1U];
 
 #ifndef API_USART_CR1_TXEIE
 #define API_USART_CR1_TXEIE (1UL << 7)
 #endif
 
-/* USART1/2/3 对应的复用功能号。 */
+/* USART1/2/3 复用 AF7；UART4/5（PC10/11 与 PC12/PD2）复用 AF8。 */
 static uint8_t API_USART_GetAfNum(API_USART_Id_t id)
 {
-	(void)id;
+	if ((id == API_USART4) || (id == API_USART5))
+	{
+		return 8U;
+	}
 	return 7U;
 }
 
@@ -123,7 +126,7 @@ void API_USART_Register(const API_USART_Config_t *configTable, uint8_t count)
 
 void API_USART_RegisterIrqHandler(API_USART_Id_t id, API_USART_IrqHandler_t handler)
 {
-	if ((id < API_USART1) || (id > API_USART3))
+	if ((id < API_USART1) || (id > API_USART5))
 	{
 		return;
 	}
@@ -185,7 +188,7 @@ void API_USART_HandleIrqByCoreId(uint8_t coreId)
 		return;
 	}
 
-	if ((config->id < API_USART1) || (config->id > API_USART3))
+	if ((config->id < API_USART1) || (config->id > API_USART5))
 	{
 		return;
 	}
@@ -212,4 +215,14 @@ void USART2_IRQHandler(void)
 void USART3_IRQHandler(void)
 {
 	API_USART_HandleIrqByCoreId(API_USART_CORE_USART3);
+}
+
+void UART4_IRQHandler(void)
+{
+	API_USART_HandleIrqByCoreId(API_USART_CORE_UART4);
+}
+
+void UART5_IRQHandler(void)
+{
+	API_USART_HandleIrqByCoreId(API_USART_CORE_UART5);
 }

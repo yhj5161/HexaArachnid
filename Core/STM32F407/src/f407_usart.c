@@ -40,6 +40,7 @@ typedef struct
 #define F407_USART2_BASE   (0x40004400UL)
 #define F407_USART3_BASE   (0x40004800UL)
 #define F407_USART4_BASE   (0x40004C00UL)
+#define F407_UART5_BASE    (0x40005000UL)
 #define F407_NVIC_ISER_BASE (0xE000E100UL)
 
 #define F407_RCC           ((F407_RCC_Regs_t *)F407_RCC_BASE)
@@ -55,6 +56,7 @@ typedef struct
 #define F407_IRQ_USART2     (38U)
 #define F407_IRQ_USART3     (39U)
 #define F407_IRQ_USART4     (52U)
+#define F407_IRQ_UART5      (53U)
 
 typedef struct
 {
@@ -103,6 +105,12 @@ static F407_USART_Map_t F407_USART_GetMap(uint8_t usartId)
 		map.rccBit = 19U;
 		map.pclkHz = 42000000UL;
 		map.irqNum = F407_IRQ_USART4;
+		break;
+	case 4U:
+		map.regs = (F407_USART_Regs_t *)F407_UART5_BASE;
+		map.rccBit = 20U;         /* RCC_APB1ENR_UART5EN */
+		map.pclkHz = 42000000UL;  /* UART5 挂 APB1 */
+		map.irqNum = F407_IRQ_UART5;
 		break;
 	default:
 		break;

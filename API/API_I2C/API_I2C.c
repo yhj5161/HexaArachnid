@@ -392,7 +392,7 @@ static void App_I2C_ScanBus(API_I2C_BusId_t busId)
 	API_I2C_SetSpeed(API_I2C_SPEED_100K);
 
 	foundCount = 0U;
-	usart_printf(USART1, "\r\n[I2C][API_I2C%u] scan start\r\n", (unsigned int)((uint8_t)busId + 1U));
+	usart_printf(PRINTF_USART, "\r\n[I2C][API_I2C%u] scan start\r\n", (unsigned int)((uint8_t)busId + 1U));
 
 	for (addr = 1U; addr < 0x7FU; addr++)
 	{
@@ -401,13 +401,13 @@ static void App_I2C_ScanBus(API_I2C_BusId_t busId)
 		if (API_I2C_Wait_Ack() == 0U)
 		{
 			foundCount++;
-			usart_printf(USART1, "[I2C][API_I2C%u] found: 0x%02X\r\n", (unsigned int)((uint8_t)busId + 1U), addr);
+			usart_printf(PRINTF_USART, "[I2C][API_I2C%u] found: 0x%02X\r\n", (unsigned int)((uint8_t)busId + 1U), addr);
 		}
 		API_I2C_Stop();
 		Delay_ms(1U);
 	}
 
-	usart_printf(USART1, "[I2C][API_I2C%u] scan done, count=%u\r\n", (unsigned int)((uint8_t)busId + 1U), foundCount);
+	usart_printf(PRINTF_USART, "[I2C][API_I2C%u] scan done, count=%u\r\n", (unsigned int)((uint8_t)busId + 1U), foundCount);
 
 	API_I2C_SelectBus(prevBusId);
 	API_I2C_SetSpeed(prevSpeed);
@@ -422,7 +422,7 @@ void App_I2C_ScanOnce(void)
 
 	if ((s_i2cTable == 0) || (s_i2cCount == 0U))
 	{
-		usart_printf(USART1, "\r\n[I2C] scan skipped: no bus registered\r\n");
+		usart_printf(PRINTF_USART, "\r\n[I2C] scan skipped: no bus registered\r\n");
 		return;
 	}
 

@@ -10,19 +10,23 @@ extern "C" {
 /* 本工程固定为 STM32F407，直接包含其底层头文件。 */
 #include "f407_usart.h"
 
-/* F407 串口映射按正常顺序定义：API_USART1/2/3 对应底层串口 0/1/2。 */
+/* F407 串口映射按正常顺序定义：API_USART1/2/3/5 对应底层串口 0/1/2/4。 */
 
 typedef enum
 {
 	API_USART1 = 1U,
 	API_USART2 = 2U,
 	API_USART3 = 3U,
+	API_USART4 = 4U,   /* F407 物理外设名为 UART4（PC10 TX / PC11 RX，预留调试口） */
+	API_USART5 = 5U,   /* F407 物理外设名为 UART5（PC12 TX / PD2 RX） */
 } API_USART_Id_t;
 
 /* F407 底层串口编号。 */
 #define API_USART_CORE_USART1  (0U)
 #define API_USART_CORE_USART2  (1U)
 #define API_USART_CORE_USART3  (2U)
+#define API_USART_CORE_UART4   (3U)
+#define API_USART_CORE_UART5   (4U)
 
 typedef struct
 {
@@ -55,6 +59,10 @@ typedef struct
 #define USART2 ((F407_USART_View_t *)0x40004400UL)
 #define USART3 ((F407_USART_View_t *)0x40004800UL)
 #define USART4 ((F407_USART_View_t *)0x40004C00UL)
+/* F407 物理外设名为 UART5；寄存器视图与 USART 相同。 */
+#ifndef UART5
+#define UART5  ((F407_USART_View_t *)0x40005000UL)
+#endif
 #define USART_SR_RXNE (1UL << 5)
 #define USART_SR_TC   (1UL << 6)
 #define USART_SR_TXE  (1UL << 7)

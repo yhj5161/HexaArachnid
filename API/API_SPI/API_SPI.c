@@ -258,17 +258,17 @@ void App_SPI_TestOnce(void)
 
 	if (s_spiTable == 0 || s_spiCount == 0U)
 	{
-		usart_printf(USART1, "\r\n[SPI] test skipped: no bus registered\r\n");
+		usart_printf(PRINTF_USART, "\r\n[SPI] test skipped: no bus registered\r\n");
 		return;
 	}
 
-	usart_printf(USART1, "\r\n[SPI] test start\r\n");
+	usart_printf(PRINTF_USART, "\r\n[SPI] test start\r\n");
 	API_SPI_Start();
 	for (i = 0U; i < (uint8_t)(sizeof(s_txData) / sizeof(s_txData[0])); i++)
 	{
 		rx = API_SPI_SwapByte(s_txData[i]);
-		usart_printf(USART1, "[SPI] TX=0x%02X RX=0x%02X\r\n", s_txData[i], rx);
+		usart_printf(PRINTF_USART, "[SPI] TX=0x%02X RX=0x%02X\r\n", s_txData[i], rx);
 	}
 	API_SPI_Stop();
-	usart_printf(USART1, "[SPI] test done\r\n");
+	usart_printf(PRINTF_USART, "[SPI] test done\r\n");
 }

@@ -3,7 +3,7 @@
 
 /*
  * My_Usart 模块说明：
- * 1) 统一提供“应用层可直接调用”的串口发送/printf/数据包解析接口；
+ * 1) 统一提供“应用层可直接调用”的串口发送/printf 接口；
  * 2) 保持与原标准库封装接近的函数名和调用方式；
  * 3) 底层适配当前工程 API 层(usart.h)与 F407 寄存器视图。
  */
@@ -20,9 +20,16 @@
 #define USART_TX_BUF_SIZE 512U
 #endif
 
-/* printf 默认输出串口（可在编译参数或上层头文件中重定义）。 */
+/*
+ * printf 默认输出串口（可在编译参数或上层头文件中重定义）。
+ * 工程串口分工：
+ *   USART1 (PA9/PA10, 115200) → JY61P 姿态模块（RX 入环形缓冲）
+ *   USART3 (PD8/PD9, 115200)  → 调试打印（PRINTF_USART）
+ *   UART4  (PA0/PA1, 115200)  → 备用调试口（后续调试用）
+ *   UART5  (PC12/PD2, 115200) → SU-03T 离线语音模块
+ */
 #ifndef PRINTF_USART
-#define PRINTF_USART USART1
+#define PRINTF_USART USART3
 #endif
 
 /* CR1.TXEIE：发送寄存器空中断使能位。 */
@@ -30,33 +37,10 @@
 #define USART_CR1_TXEIE (1UL << 7)
 #endif
 
-/* 解析数据包后最多保存的数据项个数。 */
-#define Data_len 10U
-
 /*
  * USART_TypeDef 统一别名：本工程固定为 STM32F407，对应 F407_USART_View_t。
  */
 typedef F407_USART_View_t USART_TypeDef;
-
-/*
- * 串口数据包解析状态结构：
- * 协议示例：s12,-34,56e
- * - 's'：包头
- * - ','：分隔符
- * - 'e'：包尾
- */
-typedef struct
-{
-	uint16_t data[Data_len];
-	uint8_t count;
-	uint8_t state;
-	uint8_t current_index;
-	uint8_t buffer[16];
-	uint8_t buffer_len;
-} USART_DataType;
-
-/* 全局解析状态实例，建议在中断中喂数据，在主循环中读取结果。 */
-extern USART_DataType USART_DataTypeStruct;
 
 /*
  * 发送单字节（优先异步，不行则退化阻塞发送）。
@@ -99,17 +83,5 @@ void usart_tx_irq_handler(USART_TypeDef *USARTx);
 
 /* 根据 API 串口 ID 处理 RX/TX 中断事件（由注册层回调触发）。 */
 void usart_irq_dispatch_by_id(API_USART_Id_t id, uint32_t *rxData, uint8_t *rxValid);
-
-/*
- * 接收数据包解析函数：
- * 建议在 RXNE 分支读取到 data 后调用。
- */
-void usart_Dispose_Data(USART_TypeDef *USARTx, USART_DataType *USART_DataTypeStruct, uint8_t RxData);
-
-/*
- * 获取已解析数据项。
- * 返回：索引有效则返回数据，否则返回 0。
- */
-int16_t USART_Deal(USART_DataType *pData, int8_t index);
 
 #endif
