@@ -208,18 +208,17 @@ static void DisplayTask(void *argument)
 	float yaw = 0.0f;
 
 	for (;;)
-	{
+	{/* JY61P 姿态角 */
+		JY61P_GetAngle(&roll, &pitch, &yaw);
 	/* 串口数据打印（50ms 节拍标志由 TIM3 中断置起） */
 		if (print_task_flag != 0U)
 		{
 			print_task_flag = 0U;
 			// usart_printf(PRINTF_USART, "key: %lu\r\n", Key);
 			// usart_printf(PRINTF_USART, "Timer_Bsp_t: %lu\r\n", Timer_Bsp_t);
-			usart_printf(PRINTF_USART, "R=%.1f P=%.1f Y=%.1f\r\n", (double)roll, (double)pitch, (double)yaw);
+			usart_printf(USART4, "R=%.1f P=%.1f Y=%.1f\r\n", (double)roll, (double)pitch, (double)yaw);
 		}
 
-	/* JY61P 姿态角 */
-		JY61P_GetAngle(&roll, &pitch, &yaw);
 
 	/* OLED刷新 */
 		OLED_Printf(0, 0, OLED_8X16, "%d", Timer_Bsp_t);
