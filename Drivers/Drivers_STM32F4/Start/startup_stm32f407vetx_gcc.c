@@ -222,6 +222,9 @@ void (*const g_pfnVectors[])(void) = {
 
 void Reset_Handler(void)
 {
+	/* 冷启动延时：让电源/晶振在 SystemInit() 之前充分稳定，约 100ms @16MHz */
+	for (volatile uint32_t cold_delay = 0U; cold_delay < 320000U; cold_delay++) {}
+
 	uint32_t *source;
 	uint32_t *destination;
 

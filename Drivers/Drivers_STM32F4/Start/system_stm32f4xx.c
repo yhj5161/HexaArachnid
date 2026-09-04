@@ -711,11 +711,18 @@ static void SetSysClock(void)
     /* Enable the main PLL */
     RCC->CR |= RCC_CR_PLLON;
 
-    /* Wait till the main PLL is ready */
+    /* Wait till the main PLL is ready (with timeout fallback to HSI) */
+    StartUpCounter = 0;
     while((RCC->CR & RCC_CR_PLLRDY) == 0)
     {
+        StartUpCounter++;
+        if (StartUpCounter > 0x8000U)
+        {
+            RCC->CR &= ~((uint32_t)RCC_CR_PLLON);
+            SystemCoreClock = HSI_VALUE;
+            return;
+        }
     }
-   
 #if defined(STM32F427_437xx) || defined(STM32F429_439xx) || defined(STM32F446xx) || defined(STM32F469_479xx)
     /* Enable the Over-drive to extend the clock frequency to 180 Mhz */
     PWR->CR |= PWR_CR_ODEN;
@@ -757,6 +764,7 @@ static void SetSysClock(void)
   else
   { /* If HSE fails to start-up, the application will have wrong clock
          configuration. User can add here some code to deal with this error */
+    SystemCoreClock = HSI_VALUE;  /* 更新为实际 HSI 16MHz，避免时序错乱 */
   }
 #elif defined(STM32F410xx) || defined(STM32F411xE)
 #if defined(USE_HSE_BYPASS) 
