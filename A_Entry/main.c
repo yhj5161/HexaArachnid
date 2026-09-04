@@ -24,6 +24,7 @@
 #include "HCSR04.h"
 #include "JY61P/JY61P.h"
 #include "SU03T/SU03T.h"
+#include "PCA9685.h"
 
 /*FreeRTOS 内核*/
 #include "FreeRTOS.h"
@@ -67,6 +68,22 @@ static void ControlTask(void *argument);
 static void SensorTask(void *argument);
 static void DisplayTask(void *argument);
 
+/*
+ * ======================== 舵机布局（六足 × 3 关节/腿 = 18 舵机）========================
+ *
+ * PCA9685 #1 (I2C3, 0x40) — 左侧 3 条腿        PCA9685 #2 (I2C4, 0x40) — 右侧 3 条腿
+ * ┌──────────┬──────┬──────┬──────┐              ┌──────────┬──────┬──────┬──────┐
+ * │ 腿       │ Coxa │Femur │Tibia │              │ 腿       │ Coxa │Femur │Tibia │
+ * ├──────────┼──────┼──────┼──────┤              ├──────────┼──────┼──────┼──────┤
+ * │ Leg1 (左前)│ ch0  │ ch1  │ ch2  │              │ Leg4 (右前)│ ch0  │ ch1  │ ch2  │
+ * │ Leg2 (左中)│ ch3  │ ch4  │ ch5  │              │ Leg5 (右中)│ ch3  │ ch4  │ ch5  │
+ * │ Leg3 (左后)│ ch6  │ ch7  │ ch8  │              │ Leg6 (右后)│ ch6  │ ch7  │ ch8  │
+ * └──────────┴──────┴──────┴──────┘              └──────────┴──────┴──────┴──────┘
+ * ch9~15 空闲备用                                 ch9~15 空闲备用
+ */
+static PCA9685_Handle_t g_pca1;  /* 左侧 PCA9685，I2C3 */
+static PCA9685_Handle_t g_pca2;  /* 右侧 PCA9685，I2C4 */
+
 int main(void)
 {
 /* 系统时钟配置初始化 */
@@ -109,10 +126,19 @@ int main(void)
 /*BSP硬件抽象层初始化*/
 	LED_Init(LED_LOW); // 初始化LED-低电平
 	KEY_Init(); // 初始化按键
-	OLED_Init(OLED_IF_SPI);		 		/* OLED_IF_I2C(4针) / OLED_IF_SPI(7针) */
+	OLED_Init(OLED_IF_I2C);		 		/* OLED_IF_I2C(4针) / OLED_IF_SPI(7针) */
 	JY61P_Init();						/* JY61P 姿态模块（数据在 SensorTask 解析） */
 	SU03T_Init();						/* SU-03T 语音模块 */
 	// HCSR04_Init(HCSR04_1); /* HC-SR04 超声波初始化（Trig=PB6, Echo=PB7） */
+
+	/* PCA9685 舵机驱动初始化（2 块板，各走独立 I2C 总线） */
+	PCA9685_Init(&g_pca1, API_I2C3, PCA9685_DEFAULT_ADDR, 50.0f);  /* 左侧：I2C3 */
+	PCA9685_Init(&g_pca2, API_I2C4, PCA9685_DEFAULT_ADDR, 50.0f);  /* 右侧：I2C4 */
+
+	/* [校准] 所有 18 路舵机统一设 1500µs 中位，安装前校准用。
+	 * 校准完成后注释掉这两行，改走步态/IK 控制。 */
+	PCA9685_SetAllPulseUs(&g_pca1, 1500U);
+	PCA9685_SetAllPulseUs(&g_pca2, 1500U);
 
 /* ======================== 创建任务，启动调度器 ======================== */
 	(void)xTaskCreate(ControlTask, "control", TASK_STACK_CONTROL, NULL, TASK_PRIO_CONTROL, NULL);

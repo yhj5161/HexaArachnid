@@ -30,6 +30,8 @@ typedef enum
 {
 	API_I2C1 = 0,
 	API_I2C2,
+	API_I2C3,
+	API_I2C4,
 	/* 总线数量上界/非法值哨兵, 不作为真实总线使用。 */
 	API_I2C_MAX
 } API_I2C_BusId_t;
