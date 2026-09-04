@@ -294,7 +294,7 @@ float JY61P_GetTemp(void)
 #define JY61P_REG_UNLOCK   0x69U   /* 解锁寄存器        */
 #define JY61P_UNLOCK_VAL   0xB588U /* 解锁魔数          */
 
-#define JY61P_USART         USART1  /* JY61P 串口号：接 USART1 (PA9/PA10, 115200) */
+#define JY61P_USART         USART1  /* JY61P 串口号：接 USART1 (PB6/PB7, 115200) */
 
 /* ── 发送 5 字节指令包 ── */
 static void JY61P_SendCmd(uint8_t addr, uint16_t data)
