@@ -63,6 +63,9 @@ void Enroll_OLED_Register(void);
 /* HC-SR04 超声波资源注册：登记板级 Trig/Echo 引脚表。 */
 void Enroll_HCSR04_Register(void);
 
+/* NRF24L01 资源注册：登记板级 CE 控制脚。 */
+void Enroll_NRF24L01_Register(void);
+
 #ifdef __cplusplus
 }
 #endif

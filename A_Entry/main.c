@@ -24,6 +24,7 @@
 #include "HCSR04.h"
 #include "JY61P/JY61P.h"
 #include "SU03T/SU03T.h"
+#include "NRF24L01.h"
 #include "PCA9685.h"
 
 /*FreeRTOS 内核*/
@@ -84,6 +85,15 @@ static void DisplayTask(void *argument);
 static PCA9685_Handle_t g_pca1;  /* 左侧 PCA9685，I2C3 */
 static PCA9685_Handle_t g_pca2;  /* 右侧 PCA9685，I2C4 */
 
+/*
+ * NRF24L01 接收测试状态：
+ * - 遥控器（F103 江协代码）每帧发 4 字节：d0=RV速度, d1=RH转向, d2=按键码, d3=LV倍率
+ * - ControlTask 轮询收包后更新这里，DisplayTask 周期打印。
+ */
+static volatile uint8_t  s_nrfRxBuf[NRF24L01_RX_PACKET_WIDTH] = {0U, 0U, 0U, 0U};
+static volatile uint32_t s_nrfRxCount;  /* 累计收包次数 */
+static uint8_t s_nrfBlink;              /* LED 闪烁状态 */
+
 int main(void)
 {
 /* 系统时钟配置初始化 */
@@ -99,6 +109,7 @@ int main(void)
 	Enroll_KEY_Register();					/* KEY 资源注册 */
 	Enroll_OLED_Register();					/* OLED SPI 控制脚注册 */
 	Enroll_HCSR04_Register();				/* HC-SR04 超声波 资源注册 */
+	Enroll_NRF24L01_Register();				/* NRF24L01 CE 控制脚注册 */
 
 	/* 注册后绑定中断回调*/
 	Enroll_USART_RegisterIrqHandler(Control_Task_USART_Callback); /* USART 中断回调：JY61P/SU-03T */
@@ -122,6 +133,7 @@ int main(void)
 	API_SPI_Init();						/* 软件 SPI 初始化 */
 	App_I2C_ScanOnce();					/* 开机执行一次 I2C 扫描 */
 	// App_SPI_TestOnce();				/* 开机执行一次 SPI 测试 */
+	NRF24L01_Init();					/* NRF24L01 收发初始化（SPI2 + CE=PC6） */
 
 /*BSP硬件抽象层初始化*/
 	LED_Init(LED_LOW); // 初始化LED-低电平
@@ -129,7 +141,7 @@ int main(void)
 	OLED_Init(OLED_IF_I2C);		 		/* OLED_IF_I2C(4针) / OLED_IF_SPI(7针) */
 	JY61P_Init();						/* JY61P 姿态模块（数据在 SensorTask 解析） */
 	SU03T_Init();						/* SU-03T 语音模块 */
-	// HCSR04_Init(HCSR04_1); /* HC-SR04 超声波初始化（Trig=PB6, Echo=PB7） */
+	// HCSR04_Init(HCSR04_1); /* HC-SR04 超声波初始化（Trig=PA4, Echo=PA6） */
 
 	/* PCA9685 舵机驱动初始化（2 块板，各走独立 I2C 总线） */
 	PCA9685_Init(&g_pca1, API_I2C3, PCA9685_DEFAULT_ADDR, 50.0f);  /* 左侧：I2C3 */
@@ -182,6 +194,19 @@ static void ControlTask(void *argument)
 			LED_Control(LED1, LED_LOW);
 			LED_Control(LED2, LED_LOW);
 			LED_Control(LED3, LED_LOW);
+		}
+
+	/* NRF24L01 接收测试：遥控器 → F407，收到一帧就存全局 + LED2 翻转 */
+		if (NRF24L01_Receive() == 1U)
+		{
+			uint8_t i;
+			for (i = 0U; i < NRF24L01_RX_PACKET_WIDTH; i++)
+			{
+				s_nrfRxBuf[i] = NRF24L01_RxPacket[i];
+			}
+			s_nrfRxCount++;
+			s_nrfBlink ^= 1U;
+			LED_Control(LED2, s_nrfBlink ? LED_HIGH : LED_LOW);
 		}
 
 	/* HC-SR04 超声波测距测试（单次 + 5 次平均） */
@@ -243,6 +268,14 @@ static void DisplayTask(void *argument)
 			// usart_printf(PRINTF_USART, "key: %lu\r\n", Key);
 			// usart_printf(PRINTF_USART, "Timer_Bsp_t: %lu\r\n", Timer_Bsp_t);
 			usart_printf(USART4, "R=%.1f P=%.1f Y=%.1f\r\n", (double)roll, (double)pitch, (double)yaw);
+		/* NRF24L01 收到数据打印（d0=速度 d1=转向 d2=按键 d3=倍率） */
+			if (s_nrfRxCount != 0U)
+			{
+				usart_printf(USART4, "NRF cnt=%lu d0=%u d1=%u d2=%u d3=%u\r\n",
+				             (unsigned long)s_nrfRxCount,
+				             (unsigned int)s_nrfRxBuf[0], (unsigned int)s_nrfRxBuf[1],
+				             (unsigned int)s_nrfRxBuf[2], (unsigned int)s_nrfRxBuf[3]);
+			}
 		}
 
 

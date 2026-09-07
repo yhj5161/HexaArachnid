@@ -14,10 +14,10 @@
  * 3) 当前实现采用查询方式收发，不引入 IRQ 中断脚。
  */
 
-/* NRF24L01 使用固定 5 字节地址与 32 字节包长。 */
+/* NRF24L01 使用固定 5 字节地址与 4 字节包长（与 F103 遥控器江协代码对齐）。 */
 #define NRF24L01_ADDR_WIDTH      5U
-#define NRF24L01_TX_PACKET_WIDTH 32U
-#define NRF24L01_RX_PACKET_WIDTH 32U
+#define NRF24L01_TX_PACKET_WIDTH 4U
+#define NRF24L01_RX_PACKET_WIDTH 4U
 
 /* NRF24L01 模块专有控制脚（仅 CE，IRQ 暂不引入）。 */
 typedef struct

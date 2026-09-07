@@ -110,6 +110,16 @@ static const OLED_SpiCtrlConfig_t s_oledSpiCtrlTable[] =
 };
 #undef ENROLL_OLED_SPI_CTRL_ITEM
 
+/* NRF24L01 控制表：把 HW_NRF24L01_CTRL_MAP 展开成 NRF24L01_CtrlConfig_t。 */
+#define ENROLL_NRF24L01_CTRL_ITEM(cePort, cePin) \
+	{ cePort, cePin },
+
+static const NRF24L01_CtrlConfig_t s_nrf24l01CtrlTable[] =
+{
+	HW_NRF24L01_CTRL_MAP(ENROLL_NRF24L01_CTRL_ITEM)
+};
+#undef ENROLL_NRF24L01_CTRL_ITEM
+
 /*******************************HCSR04***********************************/
 /* HC-SR04 配置表：把 HW_HCSR04_MAP 展开成 HCSR04_Config_t。 */
 #define ENROLL_HCSR04_ITEM(id, trigPort, trigPin, echoPort, echoPin) \
@@ -205,4 +215,10 @@ void Enroll_OLED_Register(void)
 void Enroll_HCSR04_Register(void)
 {
 	HCSR04_Register(s_hcsr04Table, HW_HCSR04_COUNT);
+}
+
+/* NRF24L01 注册：登记板级 CE 控制脚（SPI 引脚由 API_SPI 统一注册）。 */
+void Enroll_NRF24L01_Register(void)
+{
+	NRF24L01_RegisterCtrl(s_nrf24l01CtrlTable, HW_NRF24L01_CTRL_COUNT);
 }
