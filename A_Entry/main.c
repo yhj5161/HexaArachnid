@@ -303,6 +303,26 @@ static void DisplayTask(void *argument)
 		OLED_Printf(0, 0, OLED_8X16, "%d", Timer_Bsp_t);
 		OLED_Printf(0, 16, OLED_8X16, "R%+.1f P%+.1f", (double)roll, (double)pitch);
 		OLED_Printf(0, 32, OLED_8X16, "Y%+.1f", (double)yaw);
+
+	/* UART4 收到帧 s12,-34,56e → OLED 第 4 行显示解析出的数字 */
+		if (g_rxFrameReady != 0U)
+		{
+			g_rxFrameReady = 0U;
+			OLED_ClearArea(0, 48, 128, 16);   /* 先清行，防短字盖不住长字 */
+			OLED_Printf(0, 48, OLED_8X16, "C=%d", (int)g_rxFrameCount);
+			if (g_rxFrameCount > 0U)
+			{
+				OLED_Printf(40, 48, OLED_8X16, "%d", (int)g_rxFrame[0]);
+			}
+			if (g_rxFrameCount > 1U)
+			{
+				OLED_Printf(72, 48, OLED_8X16, "%d", (int)g_rxFrame[1]);
+			}
+			if (g_rxFrameCount > 2U)
+			{
+				OLED_Printf(104, 48, OLED_8X16, "%d", (int)g_rxFrame[2]);
+			}
+		}
 		OLED_Update();
 
 		vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_DISPLAY));
