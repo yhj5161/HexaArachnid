@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(OmniLayer C ASM)
+project(HexaArachnid C ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -18,7 +18,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/artifacts)
 # 本工程已固定为单一主控 STM32F407（蜘蛛机器人）。
 # 不再做多 MCU 目标切换，F407 平台配置直接内联。
 ###############################################################
-set(TARGET_NAME OmniLayer_F407)
+set(TARGET_NAME HexaArachnid_F407)
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/Core/STM32F407/cmake/STM32F407VE_FLASH.ld)
 set(OPENOCD_CFG ${CMAKE_SOURCE_DIR}/OpenOCD/F407_OpenOCD.cfg)
 set(OPENOCD_ERASE_CMD "stm32f4x mass_erase 0")
@@ -50,6 +50,12 @@ set(APP_LAYER_SOURCES
     ${CMAKE_SOURCE_DIR}/app/Control_Task/Control_Task.c
     ${CMAKE_SOURCE_DIR}/app/PID/PID.c
     ${CMAKE_SOURCE_DIR}/app/Filter/Filter.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/leg.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/servo.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/movement.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/movement_profile.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/hexapod.c
+    ${CMAKE_SOURCE_DIR}/app/Hexa/command.c
 )
 
 # 系统层（SYSTEM）：中断管理与板级系统封装。
@@ -104,6 +110,7 @@ set(COMMON_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/app/My_Usart
     ${CMAKE_SOURCE_DIR}/app/PID
     ${CMAKE_SOURCE_DIR}/app/Filter
+    ${CMAKE_SOURCE_DIR}/app/Hexa
     ${CMAKE_SOURCE_DIR}/API
     ${CMAKE_SOURCE_DIR}/API/inc
     ${CMAKE_SOURCE_DIR}/API/API_I2C

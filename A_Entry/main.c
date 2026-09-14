@@ -26,6 +26,8 @@
 #include "SU03T/SU03T.h"
 #include "NRF24L01.h"
 #include "PCA9685.h"
+#include "hexapod.h"
+#include "command.h"
 
 /*FreeRTOS 内核*/
 #include "FreeRTOS.h"
@@ -82,8 +84,11 @@ static void DisplayTask(void *argument);
  * └──────────┴──────┴──────┴──────┘              └──────────┴──────┴──────┴──────┘
  * ch9~15 空闲备用                                 ch9~15 空闲备用
  */
-static PCA9685_Handle_t g_pca1;  /* 左侧 PCA9685，I2C3 */
-static PCA9685_Handle_t g_pca2;  /* 右侧 PCA9685，I2C4 */
+PCA9685_Handle_t g_pca1;  /* 左侧 PCA9685，I2C3 */
+PCA9685_Handle_t g_pca2;  /* 右侧 PCA9685，I2C4 */
+
+static Hexapod s_hexapod;
+static MovementMode s_mode = MOVEMENT_STANDBY;  /* 当前运动模式 */
 
 /*
  * NRF24L01 接收测试状态：
@@ -147,10 +152,10 @@ int main(void)
 	PCA9685_Init(&g_pca1, API_I2C3, PCA9685_DEFAULT_ADDR, 50.0f);  /* 左侧：I2C3 */
 	PCA9685_Init(&g_pca2, API_I2C4, PCA9685_DEFAULT_ADDR, 50.0f);  /* 右侧：I2C4 */
 
-	/* [校准] 所有 18 路舵机统一设 1500µs 中位，安装前校准用。
-	 * 校准完成后注释掉这两行，改走步态/IK 控制。 */
-	PCA9685_SetAllPulseUs(&g_pca1, 1500U);
-	PCA9685_SetAllPulseUs(&g_pca2, 1500U);
+	/* 六足运动控制初始化（校准加载 + standby 姿态） */
+	Hexapod_Init(&s_hexapod);
+	Hexapod_SetSpeed(&s_hexapod, 1.0f);  /* [测试] 全速，改回 0.5f 恢复半速 */
+
 
 /* ======================== 创建任务，启动调度器 ======================== */
 	(void)xTaskCreate(ControlTask, "control", TASK_STACK_CONTROL, NULL, TASK_PRIO_CONTROL, NULL);
@@ -179,7 +184,15 @@ static void ControlTask(void *argument)
 		key_Get();
 		if (Key == 1U)
 		{
-			LED_Control(LED1, LED_HIGH);
+    if (s_mode == MOVEMENT_FORWARD)
+    {
+        s_mode = MOVEMENT_STANDBY;
+    }
+    else
+    {
+        s_mode = MOVEMENT_FORWARD;
+    }
+    Key = 0U;  /* ← 消费掉，不让下次循环重复触发 */
 		}
 		if (Key == 2U)
 		{
@@ -207,6 +220,13 @@ static void ControlTask(void *argument)
 			s_nrfRxCount++;
 			s_nrfBlink ^= 1U;
 			LED_Control(LED2, s_nrfBlink ? LED_HIGH : LED_LOW);
+		}
+
+	/* 20ms 步态节拍：TIM3 1ms 中断累加 s_tick20ms，满 20 推进一帧 */
+		if (s_tick20ms >= 20U)
+		{
+			s_tick20ms = 0U;
+			Hexapod_ProcessMovement(&s_hexapod, s_mode, 20);
 		}
 
 	/* HC-SR04 超声波测距测试（单次 + 5 次平均） */

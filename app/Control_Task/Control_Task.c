@@ -13,6 +13,9 @@ uint32_t Timer_Bsp_t = 0;
 /* printf节拍 */
 volatile uint8_t print_task_flag = 0;
 
+/* 20ms 步态节拍：1ms 中断累加，满 20 由 ControlTask 消费 */
+volatile uint8_t s_tick20ms = 0U;
+
 /*
  * API_TIM3: 1ms -> Key + printf + time
  */
@@ -30,6 +33,7 @@ void Control_Task_Housekeeping_Callback(API_TIM_Id_t id)
 
 	printf_tick++;
 	time_t++;
+	s_tick20ms++;
 
 	if (printf_tick >= 50U)
 	{
