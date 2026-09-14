@@ -2,7 +2,7 @@
 #define __FREERTOS_CONFIG_H
 
 /*
- * FreeRTOSConfig.h — OmniLayer (STM32F407VE, Cortex-M4F, GCC)
+ * FreeRTOSConfig.h — HexaArachnid (STM32F407VE, Cortex-M4F, GCC)
  *
  * 内核版本：FreeRTOS-Kernel V11.1.0（目录 FreeRTOS/）
  * 移植层  ：portable/GCC/ARM_CM4F（硬件 FPU）

@@ -91,10 +91,7 @@ void soft_i2c_hal_init(void *sclPort, uint32_t sclPin, uint32_t sclIomux,
 
 	/* 初始化 GPIO */
 	f407_pin_init_output(s_sclReg, sclPin);
-	if ((uintptr_t)sdaPort != (uintptr_t)sclPort)
-	{
-		f407_pin_init_output(s_sdaReg, sdaPin);
-	}
+	f407_pin_init_output(s_sdaReg, sdaPin);
 
 	/* SDA MODER/PUPDR 预计算 */
 	idx = pin_index(sdaPin);

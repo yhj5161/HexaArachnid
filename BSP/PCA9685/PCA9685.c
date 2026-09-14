@@ -1,5 +1,6 @@
 #include "PCA9685.h"
 #include "Delay.h"
+#include "BusRate.h"
 
 /* ===================== PCA9685 寄存器地址 ===================== */
 #define PCA9685_REG_MODE1       0x00U
@@ -31,6 +32,7 @@ static void PCA9685_WriteReg(PCA9685_Handle_t *handle, uint8_t reg, uint8_t val)
 {
 	API_I2C_Lock();
 	API_I2C_SelectBus(handle->i2cBus);
+	API_I2C_SetSpeed(PCA9685_I2C_SPEED);
 
 	API_I2C_Start();
 	API_I2C_SendByte((uint8_t)(handle->i2cAddr << 1));  /* 写地址 */
@@ -53,6 +55,7 @@ static uint8_t PCA9685_ReadReg(PCA9685_Handle_t *handle, uint8_t reg)
 
 	API_I2C_Lock();
 	API_I2C_SelectBus(handle->i2cBus);
+	API_I2C_SetSpeed(PCA9685_I2C_SPEED);
 
 	API_I2C_Start();
 	API_I2C_SendByte((uint8_t)(handle->i2cAddr << 1));  /* 写地址 */
@@ -97,7 +100,7 @@ void PCA9685_Init(PCA9685_Handle_t *handle, API_I2C_BusId_t bus, uint8_t addr, f
 
 	/* ---- 3. 计算并写入 prescaler ---- */
 	/* prescale = round(osc / (4096 * freq)) - 1 */
-	prescale = (uint8_t)((float)PCA9685_OSC_FREQ / (PCA9685_PWM_RESOLUTION * freq) + 0.5f);
+	prescale = (uint8_t)((float)PCA9685_OSC_FREQ / (PCA9685_PWM_RESOLUTION * freq) + 0.5f) - 1U;
 	if (prescale < 3U)
 	{
 		prescale = 3U;  /* 数据手册规定 prescale ≥ 3 */
@@ -130,6 +133,7 @@ void PCA9685_SetPWM(PCA9685_Handle_t *handle, uint8_t channel, uint16_t on, uint
 
 	API_I2C_Lock();
 	API_I2C_SelectBus(handle->i2cBus);
+	API_I2C_SetSpeed(PCA9685_I2C_SPEED);
 
 	API_I2C_Start();
 	API_I2C_SendByte((uint8_t)(handle->i2cAddr << 1));
@@ -233,6 +237,7 @@ void PCA9685_SetAllPulseUs(PCA9685_Handle_t *handle, uint16_t pulseUs)
 
 	API_I2C_Lock();
 	API_I2C_SelectBus(handle->i2cBus);
+	API_I2C_SetSpeed(PCA9685_I2C_SPEED);
 
 	API_I2C_Start();
 	API_I2C_SendByte((uint8_t)(handle->i2cAddr << 1));

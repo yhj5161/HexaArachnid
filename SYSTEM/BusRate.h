@@ -33,4 +33,7 @@
 #define OLED_SPI_SPEED      API_SPI_SPEED_5M
 #define NRF24L01_SPI_SPEED  API_SPI_SPEED_5M
 
+/* --- PCA9685 舵机驱动板 --- */
+#define PCA9685_I2C_SPEED   API_I2C_SPEED_100K
+
 #endif /* __BUS_RATE_H */
