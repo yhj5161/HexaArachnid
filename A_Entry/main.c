@@ -74,15 +74,15 @@ static void DisplayTask(void *argument);
 /*
  * ======================== 舵机布局（六足 × 3 关节/腿 = 18 舵机）========================
  *
- * PCA9685 #1 (I2C3, 0x40) — 左侧 3 条腿        PCA9685 #2 (I2C4, 0x40) — 右侧 3 条腿
+ * PCA9685 #1 (I2C3) — 左侧 3 条腿              PCA9685 #2 (I2C4) — 右侧 3 条腿
  * ┌──────────┬──────┬──────┬──────┐              ┌──────────┬──────┬──────┬──────┐
  * │ 腿       │ Coxa │Femur │Tibia │              │ 腿       │ Coxa │Femur │Tibia │
  * ├──────────┼──────┼──────┼──────┤              ├──────────┼──────┼──────┼──────┤
- * │ Leg1 (左前)│ ch0  │ ch1  │ ch2  │              │ Leg4 (右前)│ ch0  │ ch1  │ ch2  │
- * │ Leg2 (左中)│ ch3  │ ch4  │ ch5  │              │ Leg5 (右中)│ ch3  │ ch4  │ ch5  │
- * │ Leg3 (左后)│ ch6  │ ch7  │ ch8  │              │ Leg6 (右后)│ ch6  │ ch7  │ ch8  │
+ * │ Leg1 (左前)│ ch5  │ ch6  │ ch7  │              │ Leg4 (右前)│ ch5  │ ch6  │ ch7  │
+ * │ Leg2 (左中)│ ch2  │ ch3  │ ch4  │              │ Leg5 (右中)│ ch2  │ ch3  │ ch4  │
+ * │ Leg3 (左后)│ ch8  │ ch9  │ ch10 │              │ Leg6 (右后)│ ch8  │ ch9  │ ch10 │
  * └──────────┴──────┴──────┴──────┘              └──────────┴──────┴──────┴──────┘
- * ch9~15 空闲备用                                 ch9~15 空闲备用
+ * ch0/1/11~15 空闲备用                            ch0/1/11~15 空闲备用
  */
 PCA9685_Handle_t g_pca1;  /* 左侧 PCA9685，I2C3 */
 PCA9685_Handle_t g_pca2;  /* 右侧 PCA9685，I2C4 */
@@ -304,23 +304,83 @@ static void DisplayTask(void *argument)
 		OLED_Printf(0, 16, OLED_8X16, "R%+.1f P%+.1f", (double)roll, (double)pitch);
 		OLED_Printf(0, 32, OLED_8X16, "Y%+.1f", (double)yaw);
 
-	/* UART4 收到帧 s12,-34,56e → OLED 第 4 行显示解析出的数字 */
+	/* ──────── UART4 接收帧处理 ────────
+	 * 舵机指令：s<舵机0~17>[,<脉宽500~2500>]e
+	 *   例：s3e        → 舵机 3 归中 (默认 1500µs)
+	 *       s3,1000e   → 舵机 3 摆到 1000µs
+	 *       s15,2000e  → 舵机 15 摆到 2000µs
+	 *
+	 * 编号 0~17 的 PCA 通道映射（与 servo.c 的 hexapod2pwm() 完全一致）：
+	 *   PCA#1 (左侧): 左前 ch5/6/7, 左中 ch2/3/4, 左后 ch8/9/10
+	 *   PCA#2 (右侧): 右前 ch5/6/7, 右中 ch2/3/4, 右后 ch8/9/10
+	 *
+	 *  0:左前Coxa  1:左前Femur  2:左前Tibia
+	 *  3:左中Coxa  4:左中Femur  5:左中Tibia
+	 *  6:左后Coxa  7:左后Femur  8:左后Tibia
+	 *  9:右前Coxa 10:右前Femur 11:右前Tibia
+	 * 12:右中Coxa 13:右中Femur 14:右中Tibia
+	 * 15:右后Coxa 16:右后Femur 17:右后Tibia
+	 *
+	 * 其余帧（个数≠1,2）仍按通用方式显示 */
+	static const struct { PCA9685_Handle_t *pca; uint8_t ch; } s_servoMap[18] = {
+		{&g_pca1, 5U},  /*  0: 左前 Coxa */
+		{&g_pca1, 6U},  /*  1: 左前 Femur */
+		{&g_pca1, 7U},  /*  2: 左前 Tibia */
+		{&g_pca1, 2U},  /*  3: 左中 Coxa */
+		{&g_pca1, 3U},  /*  4: 左中 Femur */
+		{&g_pca1, 4U},  /*  5: 左中 Tibia */
+		{&g_pca1, 8U},  /*  6: 左后 Coxa */
+		{&g_pca1, 9U},  /*  7: 左后 Femur */
+		{&g_pca1, 10U}, /*  8: 左后 Tibia */
+		{&g_pca2, 5U},  /*  9: 右前 Coxa */
+		{&g_pca2, 6U},  /* 10: 右前 Femur */
+		{&g_pca2, 7U},  /* 11: 右前 Tibia */
+		{&g_pca2, 2U},  /* 12: 右中 Coxa */
+		{&g_pca2, 3U},  /* 13: 右中 Femur */
+		{&g_pca2, 4U},  /* 14: 右中 Tibia */
+		{&g_pca2, 8U},  /* 15: 右后 Coxa */
+		{&g_pca2, 9U},  /* 16: 右后 Femur */
+		{&g_pca2, 10U}, /* 17: 右后 Tibia */
+	};
 		if (g_rxFrameReady != 0U)
 		{
 			g_rxFrameReady = 0U;
-			OLED_ClearArea(0, 48, 128, 16);   /* 先清行，防短字盖不住长字 */
-			OLED_Printf(0, 48, OLED_8X16, "C=%d", (int)g_rxFrameCount);
-			if (g_rxFrameCount > 0U)
+			OLED_ClearArea(0, 48, 128, 16);
+
+			/* 舵机指令：1 个或 2 个数字 */
+			if ((g_rxFrameCount == 1U) || (g_rxFrameCount == 2U))
 			{
-				OLED_Printf(40, 48, OLED_8X16, "%d", (int)g_rxFrame[0]);
+				int servo = (int)g_rxFrame[0];
+				int pulse = (g_rxFrameCount >= 2U) ? (int)g_rxFrame[1] : 1500;
+
+				if ((servo >= 0) && (servo <= 17) && (pulse >= 500) && (pulse <= 2500))
+				{
+					PCA9685_SetServoPulseUs(s_servoMap[servo].pca,
+					                        s_servoMap[servo].ch,
+					                        (uint16_t)pulse);
+					OLED_Printf(0, 48, OLED_8X16, "S%d->%dus", servo, pulse);
+				}
+				else
+				{
+					OLED_Printf(0, 48, OLED_8X16, "ERR out of range");
+				}
 			}
-			if (g_rxFrameCount > 1U)
+			else
 			{
-				OLED_Printf(72, 48, OLED_8X16, "%d", (int)g_rxFrame[1]);
-			}
-			if (g_rxFrameCount > 2U)
-			{
-				OLED_Printf(104, 48, OLED_8X16, "%d", (int)g_rxFrame[2]);
+				/* 非舵机指令：3 个及以上数字，按通用方式显示 */
+				OLED_Printf(0, 48, OLED_8X16, "C=%d", (int)g_rxFrameCount);
+				if (g_rxFrameCount > 0U)
+				{
+					OLED_Printf(40, 48, OLED_8X16, "%d", (int)g_rxFrame[0]);
+				}
+				if (g_rxFrameCount > 1U)
+				{
+					OLED_Printf(72, 48, OLED_8X16, "%d", (int)g_rxFrame[1]);
+				}
+				if (g_rxFrameCount > 2U)
+				{
+					OLED_Printf(104, 48, OLED_8X16, "%d", (int)g_rxFrame[2]);
+				}
 			}
 		}
 		OLED_Update();
